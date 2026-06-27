@@ -36,6 +36,8 @@ class LearningTrack:
     default_prompt: str
     default_feedback: str
     scenario_prompt: str | None = None
+    summary: str = ""
+    use_case: str = ""
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,14 @@ TRACKS: tuple[LearningTrack, ...] = (
         default_env_name=DEFAULT_ENV_NAME,
         default_prompt=DEFAULT_PROMPT,
         default_feedback="",
+        summary=(
+            "Turn a plain-English description of how the agent should behave into a learning "
+            "environment, measure the current agent against it, then optimize toward that behavior."
+        ),
+        use_case=(
+            "Use when you have a target behavior or policy in mind and want the agent to follow it "
+            "reliably."
+        ),
     ),
     LearningTrack(
         id=LOG_TRACK_ID,
@@ -66,6 +76,11 @@ TRACKS: tuple[LearningTrack, ...] = (
         default_prompt="",
         default_feedback=DEFAULT_FEEDBACK,
         scenario_prompt=DEFAULT_OFF_TOPIC_PROMPT,
+        summary=(
+            "Capture a real bad response, turn that session log plus your feedback into a learning "
+            "environment, then optimize the unwanted behavior away."
+        ),
+        use_case="Use when the agent did something wrong and you want to stop it from happening again.",
     ),
 )
 
@@ -285,6 +300,8 @@ def walkthrough_status(
                 "defaultPrompt": candidate.default_prompt,
                 "defaultFeedback": candidate.default_feedback,
                 "scenarioPrompt": candidate.scenario_prompt,
+                "summary": candidate.summary,
+                "useCase": candidate.use_case,
             }
             for candidate in TRACKS
         ],
@@ -296,6 +313,8 @@ def walkthrough_status(
             "defaultPrompt": track.default_prompt,
             "defaultFeedback": track.default_feedback,
             "scenarioPrompt": track.scenario_prompt,
+            "summary": track.summary,
+            "useCase": track.use_case,
         },
         "envName": normalized_env_name,
         "prompt": selected_prompt,

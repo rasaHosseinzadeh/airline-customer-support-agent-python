@@ -35,11 +35,13 @@ function resolveRect(selector: string): Rect | null {
 export function GuidedTour({
   steps,
   open,
-  onClose
+  onClose,
+  onStep
 }: {
   steps: TourStep[];
   open: boolean;
   onClose: () => void;
+  onStep?: (selector: string) => void;
 }) {
   const [activeSteps, setActiveSteps] = useState<TourStep[]>([]);
   const [index, setIndex] = useState(0);
@@ -50,16 +52,29 @@ export function GuidedTour({
   });
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // When the tour opens, keep only steps whose target is currently visible.
+  // When the tour opens, keep steps whose target exists in the DOM (it may be behind an inactive
+  // mobile tab — we reveal it per step below — so don't require a visible rect here).
   useEffect(() => {
     if (!open) {
       return;
     }
-    setActiveSteps(steps.filter((step) => resolveRect(step.selector)));
+    setActiveSteps(steps.filter((step) => document.querySelector(step.selector)));
     setIndex(0);
   }, [open, steps]);
 
   const step = activeSteps[index];
+
+  // Reveal the panel that holds this step (e.g. switch the mobile tab) so it's on-screen, then
+  // re-measure once the reveal has laid out.
+  useEffect(() => {
+    if (!open || !step) {
+      return;
+    }
+    onStep?.(step.selector);
+    const timer = window.setTimeout(() => setRect(resolveRect(step.selector)), 90);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, step]);
 
   const updateRect = useCallback(() => {
     if (!step) {

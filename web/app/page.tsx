@@ -6,15 +6,20 @@ import {
   Check,
   ChevronDown,
   CircleHelp,
+  History,
+  ListChecks,
   Loader2,
   MessageSquare,
+  MoreVertical,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   RefreshCw,
+  Repeat2,
   RotateCcw,
   Send,
-  Sparkles
+  Sparkles,
+  Trash2
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -27,16 +32,14 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +49,7 @@ import { CommandBlock } from "@/components/command-block";
 import { GuidedTour, type TourStep } from "@/components/tour";
 import { SetupGate } from "@/components/setup-gate";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TrackPicker } from "@/components/track-picker";
 import { cn } from "@/lib/utils";
 
 type Role = "user" | "assistant";
@@ -82,6 +86,8 @@ type LearningTrack = {
   defaultPrompt: string;
   defaultFeedback: string;
   scenarioPrompt: string | null;
+  summary: string;
+  useCase: string;
 };
 
 type PrerequisitesStatus = {
@@ -120,6 +126,7 @@ const WALKTHROUGH_STEP_STORAGE_PREFIX = "relai-airline-learning-track-step";
 const TRACK_SESSION_STORAGE_PREFIX = "relai-airline-learning-track-session";
 const HISTORY_COLLAPSED_STORAGE_KEY = "relai-history-collapsed";
 const TOUR_SEEN_STORAGE_KEY = "relai-tour-seen";
+const TRACK_CHOSEN_STORAGE_KEY = "relai-track-chosen";
 
 const TOUR_STEPS: TourStep[] = [
   {
@@ -129,10 +136,16 @@ const TOUR_STEPS: TourStep[] = [
     body: "This is an airline customer support agent. Talk to it here to see how it responds — it's the agent you'll be testing and improving."
   },
   {
+    selector: '[data-tour="history"]',
+    placement: "right",
+    title: "Your chat sessions",
+    body: "Every conversation is saved here. Start a new session or reopen an earlier one anytime."
+  },
+  {
     selector: '[data-tour="tracks"]',
     placement: "left",
-    title: "Pick a learning track",
-    body: "Each learning track is a short, guided lesson that walks you through one RELAI feature from start to finish. Switch tracks from this menu."
+    title: "Choose what to learn",
+    body: "Each learning track is a short, guided lesson for one RELAI feature. We'll open the track picker right after this tour so you can choose — and you can switch tracks here anytime."
   },
   {
     selector: '[data-tour="step"]',
@@ -145,16 +158,21 @@ const TOUR_STEPS: TourStep[] = [
     placement: "left",
     title: "Track your progress",
     body: "See how many steps you've completed in the current learning track."
-  },
-  {
-    selector: '[data-tour="history"]',
-    placement: "right",
-    title: "Your chat sessions",
-    body: "Every conversation is saved here. Start a new session or reopen an earlier one anytime."
   }
 ];
 
 const POLL_INTERVAL_MS = 2500;
+
+type MobileView = "steps" | "chat" | "sessions";
+
+// Maps a tour step's target to the mobile tab that must be active to show it.
+const STEP_TO_TAB: Record<string, MobileView> = {
+  '[data-tour="chat"]': "chat",
+  '[data-tour="history"]': "sessions",
+  '[data-tour="tracks"]': "steps",
+  '[data-tour="step"]': "steps",
+  '[data-tour="progress"]': "steps"
+};
 
 function stepStorageKey(trackId: string) {
   return `${WALKTHROUGH_STEP_STORAGE_PREFIX}:${trackId}`;
@@ -210,22 +228,50 @@ export default function Home() {
   const [gateEngaged, setGateEngaged] = useState(false);
   const [gateDismissed, setGateDismissed] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [trackChosen, setTrackChosen] = useState(false);
+  const [mobileView, setMobileView] = useState<MobileView>("steps");
+  const [isDesktop, setIsDesktop] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const pollInFlightRef = useRef(false);
   const prereqPollInFlightRef = useRef(false);
   const tourInitedRef = useRef(false);
 
+  // Open the track picker the first time, once the gate + tour are out of the way.
+  function maybeOpenPicker() {
+    if (window.localStorage.getItem(TRACK_CHOSEN_STORAGE_KEY) !== "1") {
+      setPickerOpen(true);
+    }
+  }
+
   function closeTour() {
     window.localStorage.setItem(TOUR_SEEN_STORAGE_KEY, "1");
     setTourSeen(true);
     setTourOpen(false);
+    maybeOpenPicker();
   }
 
   function continueFromGate() {
     setGateDismissed(true);
     if (!tourSeen) {
       setTourOpen(true);
+    } else {
+      maybeOpenPicker();
     }
+  }
+
+  function closePicker() {
+    window.localStorage.setItem(TRACK_CHOSEN_STORAGE_KEY, "1");
+    setTrackChosen(true);
+    setPickerOpen(false);
+  }
+
+  function choosePicker(picked: { id: string }) {
+    const track = walkthrough?.tracks.find((candidate) => candidate.id === picked.id);
+    if (track) {
+      selectTrack(track);
+    }
+    closePicker();
   }
 
   function toggleHistory() {
@@ -346,6 +392,16 @@ export default function Home() {
     }
     setHistoryCollapsed(window.localStorage.getItem(HISTORY_COLLAPSED_STORAGE_KEY) === "1");
     setTourSeen(window.localStorage.getItem(TOUR_SEEN_STORAGE_KEY) === "1");
+    setTrackChosen(window.localStorage.getItem(TRACK_CHOSEN_STORAGE_KEY) === "1");
+  }, []);
+
+  // Track the lg breakpoint so the collapsed history rail stays a desktop-only affordance.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
   }, []);
 
   useEffect(() => {
@@ -414,16 +470,20 @@ export default function Home() {
   }, [walkthrough, walkthroughComplete, activeStep?.succeeded, activeStepIndex]);
 
   // Decide the first-load flow once both the walkthrough and prerequisite state are known.
-  // If prerequisites are already met, the welcome gate won't show, so open the tour directly.
-  // Otherwise the gate appears first and its "Start the tour" button opens the tour.
+  // Sequence: setup gate (if needed) → tour → track picker. If prerequisites are already met the
+  // gate won't show, so start the tour here; if the tour was already seen, jump to the picker.
+  // Otherwise the gate appears first and its "Start the tour" button continues the chain.
   useEffect(() => {
-    if (tourInitedRef.current || !walkthrough || !prereq) {
+    if (tourInitedRef.current || !walkthrough || !prereq || !prereq.ready) {
       return;
     }
     tourInitedRef.current = true;
-    if (!tourSeen && prereq.ready) {
+    if (!tourSeen) {
       setTourOpen(true);
+    } else {
+      maybeOpenPicker();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walkthrough, prereq, tourSeen]);
 
   function setStoredStepIndex(index: number, trackId = selectedTrackId) {
@@ -516,6 +576,29 @@ export default function Home() {
       setSessionId(payload.id);
       setMessages(payload.messages);
       setChatError(null);
+    } catch {
+      setChatError("Could not reach the server. Is the backend running?");
+    }
+  }
+
+  async function deleteSession(id: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        setChatError("Could not delete that session.");
+        return;
+      }
+      // If the deleted session was open or captured for a track, clear those references.
+      if (sessionId === id) {
+        setSessionId(null);
+        setMessages([]);
+      }
+      if (scenarioSessionId === id) {
+        setScenarioSessionId(null);
+        window.localStorage.removeItem(sessionStorageKey(selectedTrackId));
+      }
+      toast.success("Session deleted");
+      await refreshSessions();
     } catch {
       setChatError("Could not reach the server. Is the backend running?");
     }
@@ -674,45 +757,94 @@ export default function Home() {
   return (
     <main
       className={cn(
-        "grid h-screen grid-rows-[auto_1fr] overflow-hidden lg:grid-rows-1",
+        "flex h-screen flex-col overflow-hidden lg:grid lg:grid-rows-1",
         historyCollapsed
           ? "lg:grid-cols-[3.25rem_minmax(360px,1fr)_minmax(480px,1.5fr)]"
           : "lg:grid-cols-[clamp(220px,16vw,260px)_minmax(360px,1fr)_minmax(480px,1.5fr)]"
       )}
     >
+      {/* Mobile top bar — brand + controls + tab switcher (hidden on desktop) */}
+      <div className="flex shrink-0 flex-col gap-2 border-b border-border bg-card/40 px-4 py-3 lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="size-7 shrink-0 rounded-lg object-contain" src="/logo.png" alt="RELAI" />
+            <h1 className="truncate text-sm font-semibold tracking-tight">RELAI Onboarding</h1>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <ThemeToggle />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-muted-foreground"
+                  onClick={() => setTourOpen(true)}
+                  aria-label="Take a tour"
+                >
+                  <CircleHelp />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Take a tour</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+          {(
+            [
+              { id: "steps", label: "Steps", icon: ListChecks },
+              { id: "chat", label: "Chat", icon: MessageSquare },
+              { id: "sessions", label: "Sessions", icon: History }
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMobileView(tab.id)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
+                mobileView === tab.id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <tab.icon className="size-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Right column — learning tracks / walkthrough */}
       <section
-        className="flex min-h-0 flex-col overflow-y-auto [scrollbar-gutter:stable] border-b border-border bg-muted/40 p-6 lg:order-3 lg:border-b-0 lg:border-l"
+        className={cn(
+          mobileView === "steps" ? "flex" : "hidden",
+          "min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-gutter:stable] bg-muted/40 p-6 lg:flex lg:flex-1 lg:order-3 lg:border-l"
+        )}
         aria-label="RELAI walkthrough"
       >
         <div data-tour="tracks">
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Learning Tracks
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Learning Track
           </p>
-          <Select
-            value={selectedTrackId}
-            onValueChange={(value) => {
-              const track = walkthrough?.tracks.find((candidate) => candidate.id === value);
-              if (track) {
-                selectTrack(track);
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a learning track" />
-            </SelectTrigger>
-            <SelectContent>
-              {walkthrough?.tracks.map((track) => (
-                <SelectItem key={track.id} value={track.id}>
-                  {track.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="min-w-0 truncate text-base font-semibold">
+              {walkthrough?.selectedTrack.title ?? "—"}
+            </h2>
+            <Button
+              size="sm"
+              className="shrink-0"
+              onClick={() => setPickerOpen(true)}
+              disabled={!walkthrough}
+            >
+              <Repeat2 />
+              Switch track
+            </Button>
+          </div>
         </div>
 
         {walkthrough?.selectedTrack ? (
-          <p className="mt-3 mb-5 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 mb-5 text-[13px] leading-relaxed text-muted-foreground">
             {walkthrough.selectedTrack.objective}
           </p>
         ) : null}
@@ -724,9 +856,6 @@ export default function Home() {
               const isDone = step.succeeded;
               const isCurrent = i === activeStepIndex && !walkthroughComplete;
               const isOpen = expandedIndex === i;
-              const showEnvName = step.kind === "command" && step.id !== "init";
-              const showPrompt = step.id.endsWith(":learning-env") && selectedTrackId === DEFAULT_TRACK_ID;
-              const showFeedback = step.id.endsWith(":learning-env") && selectedTrackId === LOG_TRACK_ID;
               return (
                 <div
                   key={step.id}
@@ -759,45 +888,6 @@ export default function Home() {
                   {isOpen ? (
                     <div className="grid gap-4 border-t border-border px-3 py-3.5">
                       <p className="text-[13px] leading-relaxed text-muted-foreground">{step.nextAction}</p>
-
-                      {showEnvName ? (
-                        <div className="grid gap-2">
-                          <label htmlFor={`envName-${step.id}`} className="text-sm font-medium">
-                            Environment name
-                          </label>
-                          <Input
-                            id={`envName-${step.id}`}
-                            value={envName}
-                            onChange={(event) => setEnvName(event.target.value)}
-                          />
-                        </div>
-                      ) : null}
-                      {showPrompt ? (
-                        <div className="grid gap-2">
-                          <label htmlFor="prompt" className="text-sm font-medium">
-                            Learning prompt
-                          </label>
-                          <Textarea
-                            id="prompt"
-                            value={prompt}
-                            onChange={(event) => setPrompt(event.target.value)}
-                            rows={6}
-                          />
-                        </div>
-                      ) : null}
-                      {showFeedback ? (
-                        <div className="grid gap-2">
-                          <label htmlFor="feedback" className="text-sm font-medium">
-                            Feedback
-                          </label>
-                          <Textarea
-                            id="feedback"
-                            value={feedback}
-                            onChange={(event) => setFeedback(event.target.value)}
-                            rows={5}
-                          />
-                        </div>
-                      ) : null}
 
                       {step.kind === "chat" && walkthrough.selectedTrack.scenarioPrompt ? (
                         <div className="rounded-lg border border-border bg-muted/50 p-3">
@@ -838,7 +928,7 @@ export default function Home() {
             })}
           </div>
         ) : (
-          <Button variant="outline" onClick={() => void refreshWalkthrough()}>
+          <Button onClick={() => void refreshWalkthrough()}>
             <RefreshCw />
             Load walkthrough
           </Button>
@@ -859,7 +949,7 @@ export default function Home() {
               </div>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="w-full" onClick={resetWalkthrough}>
+              <Button className="w-full" onClick={resetWalkthrough}>
                 <RotateCcw />
                 Start again
               </Button>
@@ -886,37 +976,42 @@ export default function Home() {
 
       {/* Center — chat */}
       <section
-        className="flex min-h-0 flex-col bg-background lg:order-2"
+        className={cn(
+          mobileView === "chat" ? "flex" : "hidden",
+          "min-h-0 flex-1 flex-col overflow-hidden bg-background lg:flex lg:flex-1 lg:order-2"
+        )}
         aria-label="Airline support chat"
         data-tour="chat"
       >
-        <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+        <header className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
               <MessageSquare className="size-4.5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold">Airline Customer Support Agent</h2>
+              <h2 className="truncate text-sm font-semibold">Airline Customer Support Agent</h2>
               <p className="truncate font-mono text-xs text-muted-foreground">{sessionId ?? "No active session"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <ThemeToggle />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-8 text-muted-foreground"
-                  onClick={() => setTourOpen(true)}
-                  aria-label="Take a tour"
-                >
-                  <CircleHelp />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Take a tour</TooltipContent>
-            </Tooltip>
-            <Button size="sm" variant="outline" onClick={() => void startSession()}>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <div className="hidden items-center gap-1.5 lg:flex">
+              <ThemeToggle />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-muted-foreground"
+                    onClick={() => setTourOpen(true)}
+                    aria-label="Take a tour"
+                  >
+                    <CircleHelp />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Take a tour</TooltipContent>
+              </Tooltip>
+            </div>
+            <Button size="sm" onClick={() => void startSession()}>
               New session
             </Button>
           </div>
@@ -985,11 +1080,14 @@ export default function Home() {
 
       {/* Left column — session history (collapsible) */}
       <aside
-        className="hidden min-h-0 flex-col border-r border-border bg-muted/40 lg:flex lg:order-1"
+        className={cn(
+          mobileView === "sessions" ? "flex" : "hidden",
+          "min-h-0 flex-1 flex-col bg-muted/40 lg:flex lg:flex-1 lg:order-1 lg:border-r"
+        )}
         aria-label="Session history"
         data-tour="history"
       >
-        {historyCollapsed ? (
+        {isDesktop && historyCollapsed ? (
           <div className="flex flex-col items-center gap-2 px-2 py-4">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1024,7 +1122,7 @@ export default function Home() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="size-8 shrink-0 text-muted-foreground"
+                    className="hidden size-8 shrink-0 text-muted-foreground lg:inline-flex"
                     onClick={toggleHistory}
                   >
                     <PanelLeftClose />
@@ -1035,7 +1133,7 @@ export default function Home() {
             </div>
 
             <div className="px-3 pb-2">
-              <Button variant="outline" className="w-full justify-start gap-2" onClick={() => void startSession()}>
+              <Button className="w-full justify-start gap-2" onClick={() => void startSession()}>
                 <Plus className="size-4" />
                 New session
               </Button>
@@ -1063,20 +1161,43 @@ export default function Home() {
             <ScrollArea className="flex-1">
               <div className="flex flex-col gap-0.5 px-2 pb-4">
                 {sessions.map((session) => (
-                  <button
+                  <div
                     key={session.id}
-                    type="button"
-                    onClick={() => void loadSession(session.id)}
-                    title={session.preview || "New session"}
                     className={cn(
-                      "truncate rounded-md px-2.5 py-2 text-left text-sm transition-colors",
-                      session.id === sessionId
-                        ? "bg-accent font-medium text-accent-foreground"
-                        : "text-foreground hover:bg-accent/60"
+                      "group flex items-center rounded-md transition-colors",
+                      session.id === sessionId ? "bg-accent" : "hover:bg-accent/60"
                     )}
                   >
-                    {session.preview || "New session"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => void loadSession(session.id)}
+                      title={session.preview || "New session"}
+                      className={cn(
+                        "min-w-0 flex-1 truncate py-2 pr-1 pl-2.5 text-left text-sm",
+                        session.id === sessionId ? "font-medium text-accent-foreground" : "text-foreground"
+                      )}
+                    >
+                      {session.preview || "New session"}
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="mr-1 size-7 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+                          aria-label="Session options"
+                        >
+                          <MoreVertical />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem variant="destructive" onClick={() => void deleteSession(session.id)}>
+                          <Trash2 />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ))}
                 {sessions.length === 0 ? (
                   <p className="px-2.5 py-2 text-sm text-muted-foreground">No saved sessions yet.</p>
@@ -1087,7 +1208,17 @@ export default function Home() {
         )}
       </aside>
 
-      <GuidedTour open={tourOpen} steps={TOUR_STEPS} onClose={closeTour} />
+      <GuidedTour
+        open={tourOpen}
+        steps={TOUR_STEPS}
+        onClose={closeTour}
+        onStep={(selector) => {
+          const tab = STEP_TO_TAB[selector];
+          if (tab) {
+            setMobileView(tab);
+          }
+        }}
+      />
 
       {showGate && prereq ? (
         <SetupGate
@@ -1096,6 +1227,16 @@ export default function Home() {
           projectRoot={prereq.projectRoot}
           onContinue={continueFromGate}
           continueLabel={tourSeen ? "Get started" : "Start the tour"}
+        />
+      ) : null}
+
+      {walkthrough ? (
+        <TrackPicker
+          tracks={walkthrough.tracks}
+          selectedId={selectedTrackId}
+          open={pickerOpen}
+          onSelect={choosePicker}
+          onClose={closePicker}
         />
       ) : null}
     </main>

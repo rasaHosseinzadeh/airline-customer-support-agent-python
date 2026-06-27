@@ -13,6 +13,7 @@ from airline_support.agent import stream_agent_response
 from airline_support.sessions import (
     append_message,
     create_session,
+    delete_session,
     list_sessions,
     read_messages,
     validate_session_id,
@@ -70,6 +71,17 @@ def get_chat_session(session_id: str) -> dict[str, object]:
         raise HTTPException(status_code=404, detail="session not found") from error
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.delete("/api/sessions/{session_id}")
+def delete_chat_session(session_id: str) -> dict[str, object]:
+    try:
+        validate_session_id(session_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    if not delete_session(session_id):
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"deleted": session_id}
 
 
 @app.post("/api/chat/stream")

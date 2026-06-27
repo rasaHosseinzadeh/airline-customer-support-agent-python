@@ -76,6 +76,14 @@ def create_session() -> ChatSession:
     )
 
 
+def delete_session(session_id: str) -> bool:
+    path = session_path(session_id)
+    if not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
 def append_message(session_id: str, role: str, content: str) -> ChatMessage:
     if role not in {"user", "assistant"}:
         raise ValueError("role must be user or assistant")

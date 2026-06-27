@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from airline_support.sessions import append_message, create_session, list_sessions, read_messages
+from airline_support.sessions import (
+    append_message,
+    create_session,
+    delete_session,
+    list_sessions,
+    read_messages,
+)
 
 
 def test_session_messages_are_logged(monkeypatch, tmp_path):
@@ -18,3 +24,15 @@ def test_session_messages_are_logged(monkeypatch, tmp_path):
     assert sessions[0].id == session.id
     assert sessions[0].message_count == 2
     assert "change my seat" in sessions[0].preview
+
+
+def test_delete_session_removes_it(monkeypatch, tmp_path):
+    monkeypatch.setenv("AIRLINE_SUPPORT_LOG_DIR", str(tmp_path))
+
+    session = create_session()
+    assert any(item.id == session.id for item in list_sessions())
+
+    assert delete_session(session.id) is True
+    assert all(item.id != session.id for item in list_sessions())
+    # Deleting a missing session is a no-op (False), not an error.
+    assert delete_session(session.id) is False
