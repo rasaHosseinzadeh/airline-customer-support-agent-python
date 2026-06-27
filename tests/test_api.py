@@ -5,6 +5,16 @@ import json
 from fastapi.testclient import TestClient
 
 from airline_support.main import app
+from airline_support.main import cors_origins
+
+
+def test_cors_origins_supports_launcher_config(monkeypatch):
+    monkeypatch.setenv(
+        "AIRLINE_SUPPORT_CORS_ORIGINS",
+        "http://localhost:3001, http://127.0.0.1:3001",
+    )
+
+    assert cors_origins() == ["http://localhost:3001", "http://127.0.0.1:3001"]
 
 
 def test_stream_chat_logs_messages(monkeypatch, tmp_path):

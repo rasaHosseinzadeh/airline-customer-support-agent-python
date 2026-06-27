@@ -13,32 +13,38 @@ The demo has two parts:
 - Node.js 20+
 - `uv`
 - `relai` installed on `PATH`
-- `OPENAI_API_KEY` in your environment
+- `OPENAI_API_KEY` in your environment, or ready to paste when prompted
 
-## Start the Backend
+## Start the App
+
+Run the onboarding launcher from the repository root:
+
+```sh
+./start.sh
+```
+
+The script prompts for your OpenAI API key when needed, saves it to the ignored `.env` file, installs missing dependencies, starts the API and UI, and opens the web app in your browser. It uses `8000` for the API and `3000` for the UI when available, then automatically moves to the next open ports if either is already in use.
+
+## Manual Start
+
+If you prefer to run each process yourself, start the backend first:
 
 ```sh
 uv sync
 export OPENAI_API_KEY=sk-...
-uv run uvicorn airline_support.main:app --reload
+uv run uvicorn airline_support.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 The API runs at `http://127.0.0.1:8000`.
 
-## Start the UI
+Then start the UI:
 
 ```sh
 npm --prefix web install
-npm --prefix web run dev
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm --prefix web run dev
 ```
 
 Open `http://localhost:3000`.
-
-If the API runs elsewhere, set:
-
-```sh
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm --prefix web run dev
-```
 
 ## Learning Tracks
 

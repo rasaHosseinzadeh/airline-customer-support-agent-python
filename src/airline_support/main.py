@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
@@ -30,9 +31,17 @@ load_dotenv()
 
 app = FastAPI(title="RELAI Airline Onboarding API")
 
+
+def cors_origins() -> list[str]:
+    configured = os.getenv("AIRLINE_SUPPORT_CORS_ORIGINS")
+    if configured:
+        return [origin.strip() for origin in configured.split(",") if origin.strip()]
+    return ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
