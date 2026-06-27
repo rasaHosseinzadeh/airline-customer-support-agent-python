@@ -1130,7 +1130,6 @@ export default function Home() {
                 <img className="size-8 shrink-0 rounded-lg object-contain" src="/logo.png" alt="RELAI" />
                 <div className="min-w-0">
                   <h1 className="truncate text-sm font-semibold leading-tight tracking-tight">RELAI Onboarding</h1>
-                  <p className="truncate text-[11px] text-muted-foreground">Guided RELAI CLI walkthrough</p>
                 </div>
               </div>
               <Tooltip>
