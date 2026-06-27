@@ -111,7 +111,7 @@ def test_benchmark_track_commands_and_artifacts(tmp_path):
     assert "--csv benchmarks/airline_support_benchmark.csv" in steps["benchmark:register"]["command"]
     assert "--name airline-support-suite" in steps["benchmark:register"]["command"]
     assert steps["benchmark:simulate"]["command"].startswith("relai simulate --benchmarks airline-support-suite")
-    assert steps["benchmark:optimize"]["command"] == "relai optimize --benchmarks airline-support-suite"
+    assert steps["benchmark:optimize"]["command"] == "relai optimize"
 
 
 def test_benchmark_samples_do_not_duplicate_learning_env_behaviors():
@@ -195,7 +195,7 @@ def test_global_evaluator_track_commands_and_artifacts(tmp_path):
         == "relai simulate --learning-envs response-time-smoke-test "
         "--result-json .relai/runs/response-time-smoke-test-simulation.json"
     )
-    assert steps["global-evaluator:optimize"]["command"] == "relai optimize --learning-envs response-time-smoke-test"
+    assert steps["global-evaluator:optimize"]["command"] == "relai optimize"
 
 
 def test_env_name_is_shell_safe_slug():

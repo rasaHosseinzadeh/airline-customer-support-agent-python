@@ -302,7 +302,7 @@ def relai_artifact_steps(
             id=f"{track.id}:optimize",
             kind="command",
             title="Optimize",
-            command=f"relai optimize --learning-envs {quote_shell(env_name)}",
+            command="relai optimize",
             artifact_paths=[
                 ".relai/optimizer-scope.json",
                 ".relai/optimizer_runs/",
@@ -359,7 +359,7 @@ def benchmark_artifact_steps(
             id=f"{track.id}:optimize",
             kind="command",
             title="Optimize",
-            command=f"relai optimize --benchmarks {quote_shell(benchmark_name)}",
+            command="relai optimize",
             artifact_paths=[
                 ".relai/optimizer-scope.json",
                 ".relai/optimizer_runs/",
@@ -429,7 +429,7 @@ def global_evaluator_steps(
             id=f"{track.id}:optimize",
             kind="command",
             title="Optimize",
-            command=f"relai optimize --learning-envs {quote_shell(env_name)}",
+            command="relai optimize",
             artifact_paths=[
                 ".relai/optimizer-scope.json",
                 ".relai/optimizer_runs/",

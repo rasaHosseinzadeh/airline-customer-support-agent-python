@@ -70,7 +70,7 @@ relai simulate \
 ```
 
 ```sh
-relai optimize --learning-envs response-signoff
+relai optimize
 ```
 
 ### Fix Unwanted Behavior
@@ -101,7 +101,7 @@ relai simulate \
 ```
 
 ```sh
-relai optimize --learning-envs off-topic-guardrail
+relai optimize
 ```
 
 ### Benchmark
@@ -122,7 +122,7 @@ relai simulate \
 ```
 
 ```sh
-relai optimize --benchmarks airline-support-suite
+relai optimize
 ```
 
 ### Global Evaluators
@@ -148,7 +148,7 @@ relai simulate \
 ```
 
 ```sh
-relai optimize --learning-envs response-time-smoke-test
+relai optimize
 ```
 
 ## Local Logs
