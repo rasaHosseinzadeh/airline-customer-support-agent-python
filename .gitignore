@@ -6,12 +6,6 @@ __pycache__/
 
 logs/*.jsonl
 
-.relai/config.toml
-.relai/runs/
-.relai/optimizer_runs/
-.relai/optimizer-state/
-.relai/simulator.env
-
 web/.next/
 web/node_modules/
 web/out/
