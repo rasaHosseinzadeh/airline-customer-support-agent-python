@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ExternalLink, Loader2, Lock, Sparkles } from "lucide-react";
+import { Check, Download, ExternalLink, Loader2, Lock, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -17,21 +17,25 @@ export type PrerequisiteStep = {
 };
 
 const API_KEY_URL = "https://platform.relai.ai/settings/workspace/api-keys";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export function SetupGate({
   steps,
   ready,
   projectRoot,
   onContinue,
+  onRefresh,
   continueLabel = "Get started"
 }: {
   steps: PrerequisiteStep[];
   ready: boolean;
   projectRoot?: string;
   onContinue: () => void;
+  onRefresh: () => Promise<unknown>;
   continueLabel?: string;
 }) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
   const activeIndex = steps.findIndex((step) => !step.succeeded);
 
   async function copy(step: PrerequisiteStep) {
@@ -44,6 +48,36 @@ export function SetupGate({
       description: "Run it in your terminal — we'll detect it automatically."
     });
     window.setTimeout(() => setCopiedId((current) => (current === step.id ? null : current)), 1600);
+  }
+
+  async function installCli() {
+    setInstalling(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/prerequisites/install-cli`, {
+        method: "POST"
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+        throw new Error(payload?.detail ?? "Failed to install the relai CLI.");
+      }
+      const payload = (await response.json()) as { installed?: boolean; message?: string };
+      if (!payload.installed) {
+        throw new Error(
+          payload.message ??
+            "The install command finished, but relai is not available on PATH. Run the command manually in your terminal."
+        );
+      }
+      await onRefresh();
+      toast.success("Install complete", {
+        description: "The relai CLI is available. Continue with setup."
+      });
+    } catch (error) {
+      toast.error("Install failed", {
+        description: error instanceof Error ? error.message : "Failed to install the relai CLI."
+      });
+    } finally {
+      setInstalling(false);
+    }
   }
 
   return (
@@ -73,8 +107,8 @@ export function SetupGate({
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               This is a guided tour of the{" "}
               <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">relai</code> CLI
-              and platform. Before we start, complete these two steps — run each command in your terminal and
-              we&apos;ll detect when it&apos;s done.
+              and platform. Before we start, complete these steps. Install the CLI here, then run the setup
+              commands in your terminal and we&apos;ll detect when they&apos;re done.
             </p>
 
             <div className="mt-5 flex flex-col gap-3">
@@ -100,6 +134,13 @@ export function SetupGate({
 
                         {isActive && step.command ? (
                           <div className="mt-3 grid gap-2.5">
+                            {step.id === "install-cli" ? (
+                              <Button className="w-full" onClick={() => void installCli()} disabled={installing}>
+                                {installing ? <Loader2 className="spin" /> : <Download />}
+                                {installing ? "Installing CLI" : "Install CLI"}
+                              </Button>
+                            ) : null}
+
                             <CommandBlock
                               command={step.command}
                               projectRoot={projectRoot}
@@ -107,10 +148,16 @@ export function SetupGate({
                               onCopy={() => void copy(step)}
                             />
 
-                            <div className="flex items-center gap-2 px-0.5 text-sm text-muted-foreground">
-                              <Loader2 className="size-4 shrink-0 spin" />
-                              <span>Watching for the command to run…</span>
-                            </div>
+                            {step.id === "install-cli" ? (
+                              <p className="px-0.5 text-sm text-muted-foreground">
+                                Prefer a terminal? Run the command above manually.
+                              </p>
+                            ) : (
+                              <div className="flex items-center gap-2 px-0.5 text-sm text-muted-foreground">
+                                <Loader2 className="size-4 shrink-0 spin" />
+                                <span>Watching for the command to run…</span>
+                              </div>
+                            )}
 
                             {step.id === "setup" ? (
                               <a

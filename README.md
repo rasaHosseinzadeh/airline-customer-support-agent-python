@@ -12,7 +12,6 @@ The demo has two parts:
 - Python 3.11+
 - Node.js 20+
 - `uv`
-- `relai` installed on `PATH`
 - `OPENAI_API_KEY` in your environment, or ready to paste when prompted
 
 ## Start the App
@@ -23,7 +22,7 @@ Run the onboarding launcher from the repository root:
 ./start.sh
 ```
 
-The script prompts for your OpenAI API key when needed, saves it to the ignored `.env` file, installs missing dependencies, starts the API and UI, and opens the web app in your browser. It uses `8000` for the API and `3000` for the UI when available, then automatically moves to the next open ports if either is already in use.
+The script prompts for your OpenAI API key when needed, saves it to the ignored `.env` file, installs missing dependencies, starts the API and UI, and opens the web app in your browser. The app can install the `relai` CLI for you as the first onboarding step. It uses `8000` for the API and `3000` for the UI when available, then automatically moves to the next open ports if either is already in use.
 
 ## Manual Start
 

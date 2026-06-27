@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
@@ -125,6 +127,38 @@ async def stream_chat(request: ChatRequest) -> StreamingResponse:
 @app.get("/api/prerequisites/status")
 def get_prerequisites_status() -> dict[str, object]:
     return prerequisites_status()
+
+
+@app.post("/api/prerequisites/install-cli")
+def install_relai_cli() -> dict[str, object]:
+    if shutil.which("relai"):
+        return {"installed": True, "message": "relai CLI is already installed."}
+
+    if not shutil.which("uv"):
+        raise HTTPException(status_code=409, detail="uv is required to install the relai CLI.")
+
+    try:
+        result = subprocess.run(
+            ["uv", "tool", "install", "relai"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise HTTPException(status_code=504, detail="Timed out while installing the relai CLI.") from error
+
+    output = "\n".join(part.strip() for part in [result.stdout, result.stderr] if part.strip())
+    if result.returncode != 0:
+        raise HTTPException(
+            status_code=500,
+            detail=output[-4000:] or "Failed to install the relai CLI.",
+        )
+
+    return {
+        "installed": shutil.which("relai") is not None,
+        "message": output[-4000:] or "relai CLI installed.",
+    }
 
 
 @app.get("/api/walkthrough/status")

@@ -196,6 +196,19 @@ def common_init_step(relai_dir: Path) -> WalkthroughStep:
     )
 
 
+def install_cli_step() -> WalkthroughStep:
+    relai_path = shutil.which("relai")
+    return WalkthroughStep(
+        id="install-cli",
+        kind="command",
+        title="Install RELAI CLI",
+        command="uv tool install relai",
+        artifact_paths=["relai on PATH"],
+        succeeded=relai_path is not None,
+        next_action="Install the RELAI CLI locally so the setup and project commands can run.",
+    )
+
+
 def setup_step(config_path: Path | None = None) -> WalkthroughStep:
     path = config_path or (Path.home() / ".relai" / "config.toml")
     return WalkthroughStep(
@@ -243,10 +256,11 @@ def prerequisites_status(
     root = (project_root or Path.cwd()).resolve()
     setup = setup_step(config_path)
     init = common_init_step(root / ".relai")
+    install_cli = install_cli_step()
     return {
-        "ready": setup.succeeded and init.succeeded,
+        "ready": install_cli.succeeded and setup.succeeded and init.succeeded,
         "projectRoot": str(root),
-        "steps": [serialize_step(setup), serialize_step(init)],
+        "steps": [serialize_step(install_cli), serialize_step(setup), serialize_step(init)],
     }
 
 

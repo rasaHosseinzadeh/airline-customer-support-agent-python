@@ -317,7 +317,7 @@ export default function Home() {
     ? 100
     : Math.round((Math.min(activeStepIndex, totalSteps) / totalSteps) * 100);
 
-  // Blocking welcome gate: shown first, until `relai setup` + `relai init` are done. The tour
+  // Blocking welcome gate: shown first, until the CLI install, `relai setup`, and `relai init` are done. The tour
   // starts only after the gate is dismissed. `gateEngaged` latches once the gate first appears so
   // the success state stays visible until the user clicks through; an already-set-up user (ready on
   // load) never engages it and goes straight to the tour.
@@ -1298,6 +1298,7 @@ export default function Home() {
           ready={prereq.ready}
           projectRoot={prereq.projectRoot}
           onContinue={continueFromGate}
+          onRefresh={refreshPrerequisites}
           continueLabel={tourSeen ? "Get started" : "Start the tour"}
         />
       ) : null}

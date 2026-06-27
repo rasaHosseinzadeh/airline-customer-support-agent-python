@@ -202,20 +202,31 @@ def test_env_name_is_shell_safe_slug():
     assert normalize_env_name("Airline Support Policy!") == "airline-support-policy"
 
 
-def test_prerequisites_status(tmp_path):
+def test_prerequisites_status(tmp_path, monkeypatch):
     config_path = tmp_path / "home" / ".relai" / "config.toml"
     project_root = tmp_path / "project"
     project_root.mkdir()
+    relai_installed = False
+
+    def fake_which(command: str) -> str | None:
+        if command == "relai" and relai_installed:
+            return "/usr/local/bin/relai"
+        return None
+
+    monkeypatch.setattr("airline_support.walkthrough.shutil.which", fake_which)
 
     status = prerequisites_status(project_root=project_root, config_path=config_path)
     steps = {step["id"]: step for step in status["steps"]}
 
-    assert [step["id"] for step in status["steps"]] == ["setup", "init"]
+    assert [step["id"] for step in status["steps"]] == ["install-cli", "setup", "init"]
     assert status["ready"] is False
+    assert steps["install-cli"]["succeeded"] is False
+    assert steps["install-cli"]["command"] == "uv tool install relai"
     assert steps["setup"]["succeeded"] is False
     assert steps["setup"]["command"] == "relai setup"
     assert steps["init"]["succeeded"] is False
 
+    relai_installed = True
     config_path.parent.mkdir(parents=True)
     config_path.write_text("", encoding="utf-8")
     (project_root / ".relai" / "simulator").mkdir(parents=True)

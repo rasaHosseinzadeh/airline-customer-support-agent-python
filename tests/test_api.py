@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -49,3 +50,39 @@ def test_stream_chat_logs_messages(monkeypatch, tmp_path):
     log_text = (tmp_path / f"{session_id}.jsonl").read_text(encoding="utf-8")
     assert "What is the baggage policy?" in log_text
     assert "Standard tickets include one checked bag." in log_text
+
+
+def test_install_relai_cli_runs_uv_when_missing(monkeypatch):
+    calls: list[list[str]] = []
+
+    def fake_which(command: str) -> str | None:
+        if command == "uv":
+            return "/usr/local/bin/uv"
+        if command == "relai" and calls:
+            return "/Users/test/.local/bin/relai"
+        return None
+
+    def fake_run(command, **kwargs):
+        calls.append(command)
+        assert kwargs["timeout"] == 180
+        return SimpleNamespace(returncode=0, stdout="installed", stderr="")
+
+    monkeypatch.setattr("airline_support.main.shutil.which", fake_which)
+    monkeypatch.setattr("airline_support.main.subprocess.run", fake_run)
+
+    client = TestClient(app)
+    response = client.post("/api/prerequisites/install-cli")
+
+    assert response.status_code == 200
+    assert response.json()["installed"] is True
+    assert calls == [["uv", "tool", "install", "relai"]]
+
+
+def test_install_relai_cli_requires_uv(monkeypatch):
+    monkeypatch.setattr("airline_support.main.shutil.which", lambda command: None)
+
+    client = TestClient(app)
+    response = client.post("/api/prerequisites/install-cli")
+
+    assert response.status_code == 409
+    assert "uv is required" in response.json()["detail"]
