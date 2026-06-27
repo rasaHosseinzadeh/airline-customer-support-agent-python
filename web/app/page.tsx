@@ -252,6 +252,8 @@ export default function Home() {
   const [gateDismissed, setGateDismissed] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetInProgress, setResetInProgress] = useState(false);
   const [trackChosen, setTrackChosen] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("steps");
   const [isDesktop, setIsDesktop] = useState(true);
@@ -727,16 +729,18 @@ export default function Home() {
     window.setTimeout(() => setCopiedStepId(null), 1600);
   }
 
-  async function restartTrack() {
+  function restartTrack() {
     if (!walkthrough) {
       return;
     }
-    const confirmed = window.confirm(
-      "Start this track over? This deletes generated RELAI outputs for this track, including learning environment, benchmark, evaluator, simulation, and optimizer files. Chat logs and RELAI initialization stay in place."
-    );
-    if (!confirmed) {
+    setResetConfirmOpen(true);
+  }
+
+  async function confirmRestartTrack() {
+    if (!walkthrough || resetInProgress) {
       return;
     }
+    setResetInProgress(true);
     try {
       const params = new URLSearchParams({
         trackId: selectedTrackId,
@@ -748,12 +752,12 @@ export default function Home() {
       if (!response.ok) {
         throw new Error("Could not delete generated RELAI outputs.");
       }
-      window.localStorage.setItem(stepStorageKey(selectedTrackId), "0");
       window.localStorage.removeItem(sessionStorageKey(selectedTrackId));
       setScenarioSessionId(null);
       setStepStatuses({});
       setStoredStepIndex(0);
       setExpandedIndex(0);
+      setResetConfirmOpen(false);
       walkthroughRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       await refreshWalkthrough(undefined, null);
       toast.success("Track reset", {
@@ -763,6 +767,8 @@ export default function Home() {
       toast.error("Could not reset track", {
         description: error instanceof Error ? error.message : "Try again after the backend is running."
       });
+    } finally {
+      setResetInProgress(false);
     }
   }
 
@@ -1081,9 +1087,6 @@ export default function Home() {
                 <TooltipContent>Take a tour</TooltipContent>
               </Tooltip>
             </div>
-            <Button size="sm" onClick={() => void startSession()}>
-              New session
-            </Button>
           </div>
         </header>
 
@@ -1297,6 +1300,60 @@ export default function Home() {
           onContinue={continueFromGate}
           continueLabel={tourSeen ? "Get started" : "Start the tour"}
         />
+      ) : null}
+
+      {resetConfirmOpen && walkthrough ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-track-title"
+          onClick={() => {
+            if (!resetInProgress) {
+              setResetConfirmOpen(false);
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-border bg-popover p-6 text-popover-foreground shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-[color:var(--destructive)]">
+                <AlertCircle className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 id="reset-track-title" className="text-base font-semibold">
+                  Start track over?
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  This deletes generated RELAI outputs for {walkthrough.selectedTrack.title}, including learning
+                  environment, benchmark, evaluator, simulation, and optimizer files. Chat logs and RELAI
+                  initialization stay in place.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setResetConfirmOpen(false)}
+                disabled={resetInProgress}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => void confirmRestartTrack()}
+                disabled={resetInProgress}
+              >
+                {resetInProgress ? <Loader2 className="spin" /> : <Trash2 />}
+                Delete outputs
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {walkthrough ? (
