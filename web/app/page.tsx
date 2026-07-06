@@ -39,7 +39,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -212,12 +211,12 @@ function defaultFeedbackForTrack(trackId: string) {
   return trackId === LOG_TRACK_ID ? DEFAULT_FEEDBACK : "";
 }
 
-function loopTabLabel(trackId: string) {
+function loopCardLabel(trackId: string) {
   const labels: Record<string, string> = {
-    [DEFAULT_TRACK_ID]: "Learning Environment (Prompt)",
-    [LOG_TRACK_ID]: "Learning Environment (Log)",
-    [BENCHMARK_TRACK_ID]: "Benchmark",
-    [GLOBAL_EVALUATOR_TRACK_ID]: "Global Evaluators"
+    [DEFAULT_TRACK_ID]: "Learning Environment (Prompt) -> Optimized Agent",
+    [LOG_TRACK_ID]: "Learning Environment (Failure log) -> Optimized Agent",
+    [BENCHMARK_TRACK_ID]: "Benchmark -> Optimized Agent",
+    [GLOBAL_EVALUATOR_TRACK_ID]: "Global Evaluators -> Optimized Agent"
   };
   return labels[trackId] ?? "Loop";
 }
@@ -890,30 +889,32 @@ export default function Home() {
             </Tooltip>
           </div>
           {walkthrough ? (
-            <Tabs
-              value={selectedTrackId}
-              onValueChange={(trackId) => {
-                const track = walkthrough.tracks.find((candidate) => candidate.id === trackId);
-                if (track) {
-                  selectTrack(track);
-                }
-              }}
-              className="mt-3 gap-0"
-            >
-              <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-lg p-1">
-                {walkthrough.tracks.map((track) => (
-                  <TabsTrigger
+            <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Learning loops">
+              {walkthrough.tracks.map((track, index) => {
+                const isSelected = track.id === selectedTrackId;
+                return (
+                  <button
                     key={track.id}
-                    value={track.id}
-                    title={track.title}
-                    aria-label={track.title}
-                    className="h-9 min-w-0 px-1.5 py-1 text-center text-[11px] leading-tight sm:text-xs"
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => selectTrack(track)}
+                    className={cn(
+                      "min-h-20 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors",
+                      isSelected
+                        ? "border-primary/60 bg-primary/5 ring-1 ring-primary/40"
+                        : "border-border hover:bg-accent/50"
+                    )}
                   >
-                    <span className="truncate">{loopTabLabel(track.id)}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      Loop {index + 1}
+                    </span>
+                    <span className="mt-1 block text-sm font-semibold leading-snug">
+                      {loopCardLabel(track.id)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           ) : null}
         </div>
 
