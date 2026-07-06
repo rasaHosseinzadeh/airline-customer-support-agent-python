@@ -31,7 +31,7 @@ from airline_support.walkthrough import (
 
 load_dotenv()
 
-app = FastAPI(title="RELAI Airline Onboarding API")
+app = FastAPI(title="RELAI Sample Agent API")
 
 
 def cors_origins() -> list[str]:

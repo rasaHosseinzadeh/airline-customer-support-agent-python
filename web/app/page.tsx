@@ -122,7 +122,7 @@ const DEFAULT_BENCHMARK_PROMPT =
   "Create an end-to-end benchmark for the airline support agent. Treat the input column as the user message, expected_behavior as required behavior, and rubric as grading guidance.";
 
 const DEFAULT_GLOBAL_EVALUATOR_PROMPT =
-  "Create a global end-to-end evaluator that fails any simulation where the agent's total response time is greater than 5 seconds. Pass responses that finish in 5 seconds or less, and give concise feedback with the observed response time when available.";
+  "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback with the observed token count when available.";
 
 const DEFAULT_TRACK_ID = "intended-behavior";
 const LOG_TRACK_ID = "unwanted-behavior";
@@ -131,7 +131,7 @@ const GLOBAL_EVALUATOR_TRACK_ID = "global-evaluator";
 const DEFAULT_ENV_NAME = "response-signoff";
 const DEFAULT_LOG_ENV_NAME = "off-topic-guardrail";
 const DEFAULT_BENCHMARK_NAME = "airline-support-suite";
-const DEFAULT_GLOBAL_EVALUATOR_ENV_NAME = "response-time-smoke-test";
+const DEFAULT_GLOBAL_EVALUATOR_ENV_NAME = "response-token-smoke-test";
 const TRACK_STORAGE_KEY = "relai-airline-learning-track";
 const WALKTHROUGH_STEP_STORAGE_PREFIX = "relai-airline-learning-track-step";
 const TRACK_SESSION_STORAGE_PREFIX = "relai-airline-learning-track-session";
@@ -837,7 +837,7 @@ export default function Home() {
           <div className="flex min-w-0 items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="size-7 shrink-0 rounded-lg object-contain" src="/logo.png" alt="RELAI" />
-            <h1 className="truncate text-sm font-semibold tracking-tight">RELAI Onboarding</h1>
+            <h1 className="truncate text-sm font-semibold tracking-tight">RELAI Sample Agent</h1>
           </div>
           <div className="flex items-center gap-1.5">
             <ThemeToggle />
@@ -1191,7 +1191,7 @@ export default function Home() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="size-8 shrink-0 rounded-lg object-contain" src="/logo.png" alt="RELAI" />
                 <div className="min-w-0">
-                  <h1 className="truncate text-sm font-semibold leading-tight tracking-tight">RELAI Onboarding</h1>
+                  <h1 className="truncate text-sm font-semibold leading-tight tracking-tight">RELAI Sample Agent</h1>
                 </div>
               </div>
               <Tooltip>

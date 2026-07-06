@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RELAI Onboarding",
+  title: "RELAI Sample Agent",
   description: "Guided RELAI CLI walkthrough for a Python SDK airline support agent"
 };
 

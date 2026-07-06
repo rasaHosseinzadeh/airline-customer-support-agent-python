@@ -41,9 +41,15 @@ def test_prompt_track_commands_and_artifacts(tmp_path):
     assert "init" not in steps
     assert steps["intended-behavior:learning-env"]["succeeded"] is True
     assert steps["intended-behavior:simulate"]["succeeded"] is True
-    assert "--prompt" in steps["intended-behavior:learning-env"]["command"]
-    assert "please let me know if you have any questions" in steps["intended-behavior:learning-env"]["command"]
-    assert "--name response-signoff" in steps["intended-behavior:learning-env"]["command"]
+    expected_command = (
+        'relai learning-env create --prompt "The agent should end all responses with '
+        "'please let me know if you have any questions'." '" --name response-signoff'
+    )
+    assert (
+        steps["intended-behavior:learning-env"]["command"]
+        == expected_command
+    )
+    assert "'\"'\"'" not in steps["intended-behavior:learning-env"]["command"]
 
 
 def test_init_step_is_shared_when_relai_is_not_initialized(tmp_path):
@@ -183,27 +189,27 @@ def test_reset_track_outputs_deletes_generated_relai_files(tmp_path):
     (relai_dir / "optimizer_runs").mkdir()
     (relai_dir / "optimizer-state").mkdir()
     (relai_dir / "learning-env-context.json").write_text("{}", encoding="utf-8")
-    (relai_dir / "learning-envs" / "response-time-smoke-test.py").write_text("", encoding="utf-8")
-    (relai_dir / "evaluators" / "response-time.py").write_text("", encoding="utf-8")
-    (relai_dir / "runs" / "response-time-smoke-test-simulation.json").write_text("{}", encoding="utf-8")
+    (relai_dir / "learning-envs" / "response-token-smoke-test.py").write_text("", encoding="utf-8")
+    (relai_dir / "evaluators" / "response-token.py").write_text("", encoding="utf-8")
+    (relai_dir / "runs" / "response-token-smoke-test-simulation.json").write_text("{}", encoding="utf-8")
     (relai_dir / "optimizer-scope.json").write_text("{}", encoding="utf-8")
 
     result = reset_track_outputs(project_root=tmp_path, track_id=GLOBAL_EVALUATOR_TRACK_ID)
 
     assert result["trackId"] == "global-evaluator"
     assert sorted(result["deleted"]) == [
-        ".relai/evaluators/response-time.py",
-        ".relai/learning-envs/response-time-smoke-test.py",
+        ".relai/evaluators/response-token.py",
+        ".relai/learning-envs/response-token-smoke-test.py",
         ".relai/optimizer-scope.json",
         ".relai/optimizer-state",
         ".relai/optimizer_runs",
-        ".relai/runs/response-time-smoke-test-simulation.json",
+        ".relai/runs/response-token-smoke-test-simulation.json",
     ]
     assert (relai_dir / "simulator").exists()
     assert (relai_dir / "learning-env-context.json").exists()
-    assert not (relai_dir / "learning-envs" / "response-time-smoke-test.py").exists()
-    assert not (relai_dir / "evaluators" / "response-time.py").exists()
-    assert not (relai_dir / "runs" / "response-time-smoke-test-simulation.json").exists()
+    assert not (relai_dir / "learning-envs" / "response-token-smoke-test.py").exists()
+    assert not (relai_dir / "evaluators" / "response-token.py").exists()
+    assert not (relai_dir / "runs" / "response-token-smoke-test-simulation.json").exists()
     assert not (relai_dir / "optimizer-scope.json").exists()
     assert not (relai_dir / "optimizer_runs").exists()
     assert not (relai_dir / "optimizer-state").exists()
@@ -216,25 +222,25 @@ def test_global_evaluator_track_commands_and_artifacts(tmp_path):
     (relai_dir / "evaluators").mkdir()
     (relai_dir / "runs").mkdir()
     (relai_dir / "learning-env-context.json").write_text("{}", encoding="utf-8")
-    (relai_dir / "learning-envs" / "response-time-smoke-test.py").write_text("", encoding="utf-8")
-    (relai_dir / "evaluators" / "response-time.py").write_text("", encoding="utf-8")
-    (relai_dir / "runs" / "response-time-smoke-test-simulation.json").write_text("{}", encoding="utf-8")
+    (relai_dir / "learning-envs" / "response-token-smoke-test.py").write_text("", encoding="utf-8")
+    (relai_dir / "evaluators" / "response-token.py").write_text("", encoding="utf-8")
+    (relai_dir / "runs" / "response-token-smoke-test-simulation.json").write_text("{}", encoding="utf-8")
 
     status = walkthrough_status(project_root=tmp_path, track_id=GLOBAL_EVALUATOR_TRACK_ID)
     steps = {step["id"]: step for step in status["steps"]}
 
     assert status["selectedTrack"]["kind"] == "global-evaluator"
-    assert status["envName"] == "response-time-smoke-test"
+    assert status["envName"] == "response-token-smoke-test"
     assert steps["global-evaluator:learning-env"]["succeeded"] is True
     assert steps["global-evaluator:evaluator"]["succeeded"] is True
     assert steps["global-evaluator:simulate"]["succeeded"] is True
     assert "relai evaluator create" in steps["global-evaluator:evaluator"]["command"]
-    assert "greater than 5 seconds" in steps["global-evaluator:evaluator"]["command"]
-    assert "--name response-time" in steps["global-evaluator:evaluator"]["command"]
+    assert "scores 0 when any agent response is above 100 tokens" in steps["global-evaluator:evaluator"]["command"]
+    assert "--name response-token" in steps["global-evaluator:evaluator"]["command"]
     assert (
         steps["global-evaluator:simulate"]["command"]
-        == "relai simulate --learning-envs response-time-smoke-test "
-        "--result-json .relai/runs/response-time-smoke-test-simulation.json"
+        == "relai simulate --learning-envs response-token-smoke-test "
+        "--result-json .relai/runs/response-token-smoke-test-simulation.json"
     )
     assert steps["global-evaluator:optimize"]["command"] == "relai optimize"
 

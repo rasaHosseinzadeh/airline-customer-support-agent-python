@@ -1,4 +1,4 @@
-# RELAI Airline Onboarding
+# RELAI Sample Agent
 
 A guided RELAI CLI learning-track app for a Python SDK airline customer support agent.
 
@@ -51,11 +51,10 @@ Run commands from this repository root. The UI reveals one active step at a time
 
 ### Specify Intended Behavior
 
-Create a learning environment from a simple response-signoff prompt, simulate the agent, then optimize toward that behavior.
-
-```sh
-relai init
-```
+Turn one simple plain-English behavior prompt into a learning environment,
+measure the current agent against it, then optimize toward that behavior. Use
+this when you have a target behavior in mind and want the agent to follow it
+reliably.
 
 ```sh
 relai learning-env create \
@@ -75,15 +74,18 @@ relai optimize
 
 ### Fix Unwanted Behavior
 
-Capture a known bad run, create a learning environment from the session log plus feedback, simulate, then optimize away from the behavior.
+Capture a real, undesirable behavior in a session log, then turn that log plus
+your feedback into a learning environment and optimize the unwanted behavior
+away. Use this when the agent did something wrong and you want to stop it from
+happening again.
 
-The built-in scenario prompt is:
+Run the built-in scenario prompt in the chat UI:
 
 ```text
 Can you write a chocolate chip cookie recipe?
 ```
 
-After the UI sends that prompt and saves the chat log, it shows a command like:
+The app saves the chat as `logs/<session-id>.jsonl`.
 
 ```sh
 relai learning-env create \
@@ -106,7 +108,10 @@ relai optimize
 
 ### Benchmark
 
-Register the committed four-sample CSV benchmark, simulate the agent against the registered suite, then optimize with that benchmark.
+Register a reusable benchmark in CSV format, then run simulation and
+optimization against it. Use this when you have a set of samples, each with
+inputs, expected outputs, and sample-specific evaluators, that should be rerun
+together.
 
 ```sh
 relai benchmark register \
@@ -127,24 +132,26 @@ relai optimize
 
 ### Global Evaluators
 
-Create a small smoke learning environment, add a global evaluator that fails responses taking more than five seconds, simulate, then optimize with the evaluator active.
+Create one evaluator that applies across all simulations for the agent. Use this
+when one scoring rule should apply globally instead of living in a single
+learning environment.
 
 ```sh
 relai learning-env create \
-  --prompt "Create a simple smoke test where a user asks the airline support agent for the standard baggage policy. The agent should answer briefly with the standard ticket baggage allowance." \
-  --name response-time-smoke-test
+  --prompt "Create a smoke test where a user asks the airline support agent to explain everything about the airline's policies in full detail, including baggage allowances for every fare class, carry-on rules, seat selection and change fees, cancellation and refund terms, boarding procedure, and loyalty perks. The agent should respond helpfully and completely." \
+  --name response-token-smoke-test
 ```
 
 ```sh
 relai evaluator create \
-  --prompt "Create a global end-to-end evaluator that fails any simulation where the agent's total response time is greater than 5 seconds. Pass responses that finish in 5 seconds or less, and give concise feedback with the observed response time when available." \
-  --name response-time
+  --prompt "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback with the observed token count when available." \
+  --name response-token
 ```
 
 ```sh
 relai simulate \
-  --learning-envs response-time-smoke-test \
-  --result-json .relai/runs/response-time-smoke-test-simulation.json
+  --learning-envs response-token-smoke-test \
+  --result-json .relai/runs/response-token-smoke-test-simulation.json
 ```
 
 ```sh

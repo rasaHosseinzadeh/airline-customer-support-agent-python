@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import shlex
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,8 +23,8 @@ GLOBAL_EVALUATOR_TRACK_KIND = "global-evaluator"
 DEFAULT_ENV_NAME = "response-signoff"
 DEFAULT_LOG_ENV_NAME = "off-topic-guardrail"
 DEFAULT_BENCHMARK_NAME = "airline-support-suite"
-DEFAULT_GLOBAL_EVALUATOR_NAME = "response-time"
-DEFAULT_GLOBAL_EVALUATOR_ENV_NAME = "response-time-smoke-test"
+DEFAULT_GLOBAL_EVALUATOR_NAME = "response-token"
+DEFAULT_GLOBAL_EVALUATOR_ENV_NAME = "response-token-smoke-test"
 
 DEFAULT_PROMPT = (
     "The agent should end all responses with "
@@ -41,16 +40,19 @@ DEFAULT_BENCHMARK_PROMPT = (
     "as the user message, expected_behavior as required behavior, and rubric as grading guidance."
 )
 DEFAULT_GLOBAL_EVALUATOR_PROMPT = (
-    "Create a global end-to-end evaluator that fails any simulation where the agent's total "
-    "response time is greater than 5 seconds. Pass responses that finish in 5 seconds or less, "
-    "and give concise feedback with the observed response time when available."
+    "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens "
+    "or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback "
+    "with the observed token count when available."
 )
 DEFAULT_GLOBAL_EVALUATOR_SMOKE_PROMPT = (
-    "Create a simple smoke test where a user asks the airline support agent for the standard "
-    "baggage policy. The agent should answer briefly with the standard ticket baggage allowance."
+    "Create a smoke test where a user asks the airline support agent to explain everything about "
+    "the airline's policies in full detail, including baggage allowances for every fare class, "
+    "carry-on rules, seat selection and change fees, cancellation and refund terms, boarding "
+    "procedure, and loyalty perks. The agent should respond helpfully and completely."
 )
 
 ENV_NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
+SHELL_SAFE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_@%+=:,./-]+$")
 
 
 @dataclass(frozen=True)
@@ -84,15 +86,16 @@ TRACKS: tuple[LearningTrack, ...] = (
         kind=PROMPT_TRACK_KIND,
         title="Specify Intended Behavior",
         objective=(
-            "Create a learning environment for a required response signoff, simulate the agent, "
-            "then optimize toward that behavior."
+            "Turn one simple plain-English behavior prompt into a learning environment, measure "
+            "the current agent against it, then optimize toward that behavior. Use this when you "
+            "have a target behavior in mind and want the agent to follow it reliably."
         ),
         default_env_name=DEFAULT_ENV_NAME,
         default_prompt=DEFAULT_PROMPT,
         default_feedback="",
         summary=(
-            "Turn one simple plain-English behavior into a learning environment, measure the current "
-            "agent against it, then optimize toward that behavior."
+            "Turn one simple plain-English behavior prompt into a learning environment, measure "
+            "the current agent against it, then optimize toward that behavior."
         ),
         use_case=(
             "Use when you have a target behavior in mind and want the agent to follow it reliably."
@@ -102,14 +105,18 @@ TRACKS: tuple[LearningTrack, ...] = (
         id=LOG_TRACK_ID,
         kind=LOG_TRACK_KIND,
         title="Fix Unwanted Behavior",
-        objective="Capture a bad run, turn the log plus feedback into a learning environment, then optimize away from it.",
+        objective=(
+            "Capture a real, undesirable behavior in a session log, then turn that log plus your "
+            "feedback into a learning environment and optimize the unwanted behavior away. Use this "
+            "when the agent did something wrong and you want to stop it from happening again."
+        ),
         default_env_name=DEFAULT_LOG_ENV_NAME,
         default_prompt="",
         default_feedback=DEFAULT_FEEDBACK,
         scenario_prompt=DEFAULT_OFF_TOPIC_PROMPT,
         summary=(
-            "Capture a real bad response, turn that session log plus your feedback into a learning "
-            "environment, then optimize the unwanted behavior away."
+            "Capture a real, undesirable behavior in a session log, then turn that log plus your "
+            "feedback into a learning environment and optimize the unwanted behavior away."
         ),
         use_case="Use when the agent did something wrong and you want to stop it from happening again.",
     ),
@@ -118,32 +125,36 @@ TRACKS: tuple[LearningTrack, ...] = (
         kind=BENCHMARK_TRACK_KIND,
         title="Benchmark",
         objective=(
-            "Register a small CSV benchmark, simulate the agent against it, then optimize with "
-            "that benchmark."
+            "Register a reusable benchmark in CSV format, then run simulation and optimization "
+            "against it. Use this when you have a set of samples, each with inputs, expected "
+            "outputs, and sample-specific evaluators, that should be rerun together."
         ),
         default_env_name=DEFAULT_BENCHMARK_NAME,
         default_prompt=DEFAULT_BENCHMARK_PROMPT,
         default_feedback="",
         summary=(
-            "Register a reusable CSV-backed benchmark for several airline support cases, then run "
-            "simulation and optimization against it."
+            "Register a reusable benchmark in CSV format, then run simulation and optimization "
+            "against it."
         ),
-        use_case="Use when you have a small suite of examples that should be rerun together.",
+        use_case=(
+            "Use when you have a set of samples, each with inputs, expected outputs, and "
+            "sample-specific evaluators, that should be rerun together."
+        ),
     ),
     LearningTrack(
         id=GLOBAL_EVALUATOR_TRACK_ID,
         kind=GLOBAL_EVALUATOR_TRACK_KIND,
         title="Global Evaluators",
         objective=(
-            "Create a response-time global evaluator, run it with a smoke test, then optimize "
-            "with that evaluator active."
+            "Create one evaluator that applies across all simulations for the agent. Use this when "
+            "one scoring rule should apply globally instead of living in a single learning "
+            "environment."
         ),
         default_env_name=DEFAULT_GLOBAL_EVALUATOR_ENV_NAME,
         default_prompt=DEFAULT_GLOBAL_EVALUATOR_PROMPT,
         default_feedback="",
         summary=(
-            "Create one evaluator that applies across simulations for the agent, using a 5-second "
-            "response-time threshold as the example."
+            "Create one evaluator that applies across all simulations for the agent."
         ),
         use_case=(
             "Use when one scoring rule should apply globally instead of living in a single "
@@ -167,7 +178,15 @@ def normalize_env_name(value: str, fallback: str = DEFAULT_ENV_NAME) -> str:
 
 
 def quote_shell(value: str) -> str:
-    return shlex.quote(value)
+    if value and SHELL_SAFE_TOKEN_PATTERN.fullmatch(value):
+        return value
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("$", "\\$")
+        .replace("`", "\\`")
+    )
+    return f'"{escaped}"'
 
 
 def session_log_path(session_id: str | None) -> str | None:
@@ -399,7 +418,7 @@ def benchmark_artifact_steps(
             ),
             artifact_paths=[benchmark_relai_path],
             succeeded=benchmark_path.exists(),
-            next_action="Run this to register the CSV-backed benchmark with RELAI.",
+            next_action="Run this to register the CSV benchmark with RELAI.",
         ),
         WalkthroughStep(
             id=f"{track.id}:simulate",
@@ -470,7 +489,7 @@ def global_evaluator_steps(
             ),
             artifact_paths=[evaluator_relai_path],
             succeeded=evaluator_path.exists(),
-            next_action="Run this to create the global response-time evaluator.",
+            next_action="Run this to create the global response-token evaluator.",
         ),
         WalkthroughStep(
             id=f"{track.id}:simulate",
