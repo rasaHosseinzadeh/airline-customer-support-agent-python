@@ -41,9 +41,15 @@ def test_prompt_track_commands_and_artifacts(tmp_path):
     assert "init" not in steps
     assert steps["intended-behavior:learning-env"]["succeeded"] is True
     assert steps["intended-behavior:simulate"]["succeeded"] is True
-    assert "--prompt" in steps["intended-behavior:learning-env"]["command"]
-    assert "please let me know if you have any questions" in steps["intended-behavior:learning-env"]["command"]
-    assert "--name response-signoff" in steps["intended-behavior:learning-env"]["command"]
+    expected_command = (
+        'relai learning-env create --prompt "The agent should end all responses with '
+        "'please let me know if you have any questions'." '" --name response-signoff'
+    )
+    assert (
+        steps["intended-behavior:learning-env"]["command"]
+        == expected_command
+    )
+    assert "'\"'\"'" not in steps["intended-behavior:learning-env"]["command"]
 
 
 def test_init_step_is_shared_when_relai_is_not_initialized(tmp_path):

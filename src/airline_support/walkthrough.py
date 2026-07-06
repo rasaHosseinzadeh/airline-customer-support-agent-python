@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import shlex
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,6 +52,7 @@ DEFAULT_GLOBAL_EVALUATOR_SMOKE_PROMPT = (
 )
 
 ENV_NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
+SHELL_SAFE_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_@%+=:,./-]+$")
 
 
 @dataclass(frozen=True)
@@ -169,7 +169,15 @@ def normalize_env_name(value: str, fallback: str = DEFAULT_ENV_NAME) -> str:
 
 
 def quote_shell(value: str) -> str:
-    return shlex.quote(value)
+    if value and SHELL_SAFE_TOKEN_PATTERN.fullmatch(value):
+        return value
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("$", "\\$")
+        .replace("`", "\\`")
+    )
+    return f'"{escaped}"'
 
 
 def session_log_path(session_id: str | None) -> str | None:
