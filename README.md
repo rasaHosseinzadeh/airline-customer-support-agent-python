@@ -127,24 +127,24 @@ relai optimize
 
 ### Global Evaluators
 
-Create a small smoke learning environment, add a global evaluator that fails responses taking more than five seconds, simulate, then optimize with the evaluator active.
+Create a small smoke learning environment, add a global evaluator that scores responses by token count, simulate, then optimize with the evaluator active.
 
 ```sh
 relai learning-env create \
-  --prompt "Create a simple smoke test where a user asks the airline support agent for the standard baggage policy. The agent should answer briefly with the standard ticket baggage allowance." \
-  --name response-time-smoke-test
+  --prompt "Create a smoke test where a user asks the airline support agent to explain everything about the airline's policies in full detail, including baggage allowances for every fare class, carry-on rules, seat selection and change fees, cancellation and refund terms, boarding procedure, and loyalty perks. The agent should respond helpfully and completely." \
+  --name response-token-smoke-test
 ```
 
 ```sh
 relai evaluator create \
-  --prompt "Create a global end-to-end evaluator that fails any simulation where the agent's total response time is greater than 5 seconds. Pass responses that finish in 5 seconds or less, and give concise feedback with the observed response time when available." \
-  --name response-time
+  --prompt "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback with the observed token count when available." \
+  --name response-token
 ```
 
 ```sh
 relai simulate \
-  --learning-envs response-time-smoke-test \
-  --result-json .relai/runs/response-time-smoke-test-simulation.json
+  --learning-envs response-token-smoke-test \
+  --result-json .relai/runs/response-token-smoke-test-simulation.json
 ```
 
 ```sh
