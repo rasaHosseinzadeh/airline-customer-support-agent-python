@@ -15,7 +15,6 @@ import {
   PanelLeftOpen,
   Plus,
   RefreshCw,
-  Repeat2,
   RotateCcw,
   Send,
   Sparkles,
@@ -40,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -49,7 +49,6 @@ import { CommandBlock } from "@/components/command-block";
 import { GuidedTour, type TourStep } from "@/components/tour";
 import { SetupGate } from "@/components/setup-gate";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { TrackPicker } from "@/components/track-picker";
 import { cn } from "@/lib/utils";
 
 type Role = "user" | "assistant";
@@ -118,11 +117,8 @@ const DEFAULT_PROMPT =
 const DEFAULT_FEEDBACK =
   "The agent should not answer off-topic, non-airline questions. It should politely say it can only help with airline booking, baggage, seat, and flight-change questions.";
 
-const DEFAULT_BENCHMARK_PROMPT =
-  "Create an end-to-end benchmark for the airline support agent. Treat the input column as the user message, expected_behavior as required behavior, and rubric as grading guidance.";
-
 const DEFAULT_GLOBAL_EVALUATOR_PROMPT =
-  "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback with the observed token count when available.";
+  "Create an evaluator that scores 1 when an agent response is 100 tokens or fewer, and scores 0 otherwise.";
 
 const DEFAULT_TRACK_ID = "intended-behavior";
 const LOG_TRACK_ID = "unwanted-behavior";
@@ -137,7 +133,6 @@ const WALKTHROUGH_STEP_STORAGE_PREFIX = "relai-airline-learning-track-step";
 const TRACK_SESSION_STORAGE_PREFIX = "relai-airline-learning-track-session";
 const HISTORY_COLLAPSED_STORAGE_KEY = "relai-history-collapsed";
 const TOUR_SEEN_STORAGE_KEY = "relai-tour-seen";
-const TRACK_CHOSEN_STORAGE_KEY = "relai-track-chosen";
 
 const TOUR_STEPS: TourStep[] = [
   {
@@ -156,7 +151,7 @@ const TOUR_STEPS: TourStep[] = [
     selector: '[data-tour="tracks"]',
     placement: "left",
     title: "Choose what to learn",
-    body: "Each learning track is a short, guided lesson for one RELAI feature. We'll open the track picker right after this tour so you can choose — and you can switch tracks here anytime."
+    body: "Each learning loop is a short, guided lesson for one RELAI feature. Use the tabs to switch loops anytime."
   },
   {
     selector: '[data-tour="step"]',
@@ -168,7 +163,7 @@ const TOUR_STEPS: TourStep[] = [
     selector: '[data-tour="progress"]',
     placement: "left",
     title: "Track your progress",
-    body: "See how many steps you've completed in the current learning track."
+    body: "See how many steps you've completed in the current learning loop."
   }
 ];
 
@@ -207,7 +202,7 @@ function defaultPromptForTrack(trackId: string) {
   const defaults: Record<string, string> = {
     [DEFAULT_TRACK_ID]: DEFAULT_PROMPT,
     [LOG_TRACK_ID]: "",
-    [BENCHMARK_TRACK_ID]: DEFAULT_BENCHMARK_PROMPT,
+    [BENCHMARK_TRACK_ID]: "",
     [GLOBAL_EVALUATOR_TRACK_ID]: DEFAULT_GLOBAL_EVALUATOR_PROMPT
   };
   return defaults[trackId] ?? DEFAULT_PROMPT;
@@ -215,6 +210,16 @@ function defaultPromptForTrack(trackId: string) {
 
 function defaultFeedbackForTrack(trackId: string) {
   return trackId === LOG_TRACK_ID ? DEFAULT_FEEDBACK : "";
+}
+
+function loopTabLabel(trackId: string) {
+  const labels: Record<string, string> = {
+    [DEFAULT_TRACK_ID]: "Learning Environment (Prompt)",
+    [LOG_TRACK_ID]: "Learning Environment (Log)",
+    [BENCHMARK_TRACK_ID]: "Benchmark",
+    [GLOBAL_EVALUATOR_TRACK_ID]: "Global Evaluators"
+  };
+  return labels[trackId] ?? "Loop";
 }
 
 function parseSseEvent(raw: string): { event: string; data: unknown } | null {
@@ -251,10 +256,8 @@ export default function Home() {
   const [gateEngaged, setGateEngaged] = useState(false);
   const [gateDismissed, setGateDismissed] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState(0);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [resetInProgress, setResetInProgress] = useState(false);
-  const [trackChosen, setTrackChosen] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("steps");
   const [isDesktop, setIsDesktop] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -263,41 +266,17 @@ export default function Home() {
   const prereqPollInFlightRef = useRef(false);
   const tourInitedRef = useRef(false);
 
-  // Open the track picker the first time, once the gate + tour are out of the way.
-  function maybeOpenPicker() {
-    if (window.localStorage.getItem(TRACK_CHOSEN_STORAGE_KEY) !== "1") {
-      setPickerOpen(true);
-    }
-  }
-
   function closeTour() {
     window.localStorage.setItem(TOUR_SEEN_STORAGE_KEY, "1");
     setTourSeen(true);
     setTourOpen(false);
-    maybeOpenPicker();
   }
 
   function continueFromGate() {
     setGateDismissed(true);
     if (!tourSeen) {
       setTourOpen(true);
-    } else {
-      maybeOpenPicker();
     }
-  }
-
-  function closePicker() {
-    window.localStorage.setItem(TRACK_CHOSEN_STORAGE_KEY, "1");
-    setTrackChosen(true);
-    setPickerOpen(false);
-  }
-
-  function choosePicker(picked: { id: string }) {
-    const track = walkthrough?.tracks.find((candidate) => candidate.id === picked.id);
-    if (track) {
-      selectTrack(track);
-    }
-    closePicker();
   }
 
   function toggleHistory() {
@@ -418,7 +397,6 @@ export default function Home() {
     }
     setHistoryCollapsed(window.localStorage.getItem(HISTORY_COLLAPSED_STORAGE_KEY) === "1");
     setTourSeen(window.localStorage.getItem(TOUR_SEEN_STORAGE_KEY) === "1");
-    setTrackChosen(window.localStorage.getItem(TRACK_CHOSEN_STORAGE_KEY) === "1");
   }, []);
 
   // Track the lg breakpoint so the collapsed history rail stays a desktop-only affordance.
@@ -501,9 +479,9 @@ export default function Home() {
   }, [walkthrough, activeStepIndex]);
 
   // Decide the first-load flow once both the walkthrough and prerequisite state are known.
-  // Sequence: setup gate (if needed) → tour → track picker. If prerequisites are already met the
-  // gate won't show, so start the tour here; if the tour was already seen, jump to the picker.
-  // Otherwise the gate appears first and its "Start the tour" button continues the chain.
+  // Sequence: setup gate (if needed) → tour. If prerequisites are already met the gate won't show,
+  // so start the tour here; otherwise the gate appears first and its "Start the tour" button
+  // continues the chain.
   useEffect(() => {
     if (tourInitedRef.current || !walkthrough || !prereq || !prereq.ready) {
       return;
@@ -511,8 +489,6 @@ export default function Home() {
     tourInitedRef.current = true;
     if (!tourSeen) {
       setTourOpen(true);
-    } else {
-      maybeOpenPicker();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walkthrough, prereq, tourSeen]);
@@ -765,11 +741,11 @@ export default function Home() {
       setResetConfirmOpen(false);
       walkthroughRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       await refreshWalkthrough(undefined, null);
-      toast.success("Track reset", {
+      toast.success("Loop reset", {
         description: "Generated RELAI outputs were deleted. Start again from step 1."
       });
     } catch (error) {
-      toast.error("Could not reset track", {
+      toast.error("Could not reset loop", {
         description: error instanceof Error ? error.message : "Try again after the backend is running."
       });
     } finally {
@@ -883,7 +859,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Right column — learning tracks / walkthrough */}
+      {/* Right column — learning loops / walkthrough */}
       <section
         ref={walkthroughRef}
         className={cn(
@@ -893,41 +869,61 @@ export default function Home() {
         aria-label="RELAI walkthrough"
       >
         <div data-tour="tracks">
-          <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Learning Track
-          </p>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="min-w-0 truncate text-base font-semibold">
-              {walkthrough?.selectedTrack.title ?? "—"}
-            </h2>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-muted-foreground"
-                    onClick={() => void restartTrack()}
-                    disabled={!walkthrough}
-                    aria-label="Start from the beginning"
-                  >
-                    <RotateCcw />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Start from the beginning</TooltipContent>
-              </Tooltip>
-              <Button size="sm" onClick={() => setPickerOpen(true)} disabled={!walkthrough}>
-                <Repeat2 />
-                Switch track
-              </Button>
-            </div>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Learning Loops
+            </p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 shrink-0 text-muted-foreground"
+                  onClick={() => void restartTrack()}
+                  disabled={!walkthrough}
+                  aria-label="Start from the beginning"
+                >
+                  <RotateCcw />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Start from the beginning</TooltipContent>
+            </Tooltip>
           </div>
+          {walkthrough ? (
+            <Tabs
+              value={selectedTrackId}
+              onValueChange={(trackId) => {
+                const track = walkthrough.tracks.find((candidate) => candidate.id === trackId);
+                if (track) {
+                  selectTrack(track);
+                }
+              }}
+              className="mt-3 gap-0"
+            >
+              <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-lg p-1">
+                {walkthrough.tracks.map((track) => (
+                  <TabsTrigger
+                    key={track.id}
+                    value={track.id}
+                    title={track.title}
+                    aria-label={track.title}
+                    className="h-9 min-w-0 px-1.5 py-1 text-center text-[11px] leading-tight sm:text-xs"
+                  >
+                    <span className="truncate">{loopTabLabel(track.id)}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          ) : null}
         </div>
 
         {walkthrough?.selectedTrack ? (
-          <p className="mt-2 mb-5 text-[13px] leading-relaxed text-muted-foreground">
-            {walkthrough.selectedTrack.objective}
-          </p>
+          <div className="mt-3 mb-5">
+            <h2 className="text-base font-semibold leading-tight">{walkthrough.selectedTrack.title}</h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              {walkthrough.selectedTrack.objective}
+            </p>
+          </div>
         ) : null}
 
         {/* Steps — single-open accordion */}
@@ -1314,7 +1310,7 @@ export default function Home() {
           style={{ background: "rgba(0,0,0,0.7)" }}
           role="dialog"
           aria-modal="true"
-          aria-labelledby="reset-track-title"
+          aria-labelledby="reset-loop-title"
           onClick={() => {
             if (!resetInProgress) {
               setResetConfirmOpen(false);
@@ -1330,8 +1326,8 @@ export default function Home() {
                 <AlertCircle className="size-5" />
               </div>
               <div className="min-w-0">
-                <h2 id="reset-track-title" className="text-base font-semibold">
-                  Start track over?
+                <h2 id="reset-loop-title" className="text-base font-semibold">
+                  Start loop over?
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                   This deletes generated RELAI outputs for {walkthrough.selectedTrack.title}, including learning
@@ -1362,15 +1358,6 @@ export default function Home() {
         </div>
       ) : null}
 
-      {walkthrough ? (
-        <TrackPicker
-          tracks={walkthrough.tracks}
-          selectedId={selectedTrackId}
-          open={pickerOpen}
-          onSelect={choosePicker}
-          onClose={closePicker}
-        />
-      ) : null}
     </main>
   );
 }
