@@ -25,6 +25,7 @@ DEFAULT_LOG_ENV_NAME = "off-topic-guardrail"
 DEFAULT_BENCHMARK_NAME = "airline-support-suite"
 DEFAULT_GLOBAL_EVALUATOR_NAME = "response-token"
 DEFAULT_GLOBAL_EVALUATOR_ENV_NAME = "response-token-smoke-test"
+GLOBAL_EVALUATOR_RESULT_SUFFIX = "global-evaluator-simulation"
 
 DEFAULT_PROMPT = (
     "The agent should end all responses with "
@@ -35,20 +36,9 @@ DEFAULT_FEEDBACK = (
     "The agent should not answer off-topic, non-airline questions. It should politely say "
     "it can only help with airline booking, baggage, seat, and flight-change questions."
 )
-DEFAULT_BENCHMARK_PROMPT = (
-    "Create an end-to-end benchmark for the airline support agent. Treat the input column "
-    "as the user message, expected_behavior as required behavior, and rubric as grading guidance."
-)
 DEFAULT_GLOBAL_EVALUATOR_PROMPT = (
-    "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens "
-    "or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback "
-    "with the observed token count when available."
-)
-DEFAULT_GLOBAL_EVALUATOR_SMOKE_PROMPT = (
-    "Create a smoke test where a user asks the airline support agent to explain everything about "
-    "the airline's policies in full detail, including baggage allowances for every fare class, "
-    "carry-on rules, seat selection and change fees, cancellation and refund terms, boarding "
-    "procedure, and loyalty perks. The agent should respond helpfully and completely."
+    "Create an evaluator that scores 1 when an agent response is 100 tokens or fewer, "
+    "and scores 0 otherwise."
 )
 
 ENV_NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
@@ -78,6 +68,15 @@ class WalkthroughStep:
     artifact_paths: list[str]
     succeeded: bool
     next_action: str
+
+
+@dataclass(frozen=True)
+class SimulationTarget:
+    kind: str
+    name: str
+    artifact_path: Path
+    relai_path: str
+    simulate_flag: str
 
 
 TRACKS: tuple[LearningTrack, ...] = (
@@ -130,7 +129,7 @@ TRACKS: tuple[LearningTrack, ...] = (
             "outputs, and sample-specific evaluators, that should be rerun together."
         ),
         default_env_name=DEFAULT_BENCHMARK_NAME,
-        default_prompt=DEFAULT_BENCHMARK_PROMPT,
+        default_prompt="",
         default_feedback="",
         summary=(
             "Register a reusable benchmark in CSV format, then run simulation and optimization "
@@ -398,7 +397,6 @@ def benchmark_artifact_steps(
     relai_dir: Path,
     track: LearningTrack,
     benchmark_name: str,
-    prompt: str,
 ) -> list[WalkthroughStep]:
     benchmark_path = relai_dir / "benchmarks" / f"{benchmark_name}.py"
     simulation_result_path = relai_dir / "runs" / f"{benchmark_name}-simulation.json"
@@ -413,8 +411,7 @@ def benchmark_artifact_steps(
             command=(
                 "relai benchmark register "
                 "--csv benchmarks/airline_support_benchmark.csv "
-                f"--name {quote_shell(benchmark_name)} "
-                f"--prompt {quote_shell(prompt)}"
+                f"--name {quote_shell(benchmark_name)}"
             ),
             artifact_paths=[benchmark_relai_path],
             succeeded=benchmark_path.exists(),
@@ -451,33 +448,73 @@ def benchmark_artifact_steps(
     ]
 
 
+def global_evaluator_targets(relai_dir: Path) -> list[SimulationTarget]:
+    return [
+        SimulationTarget(
+            kind="learning environment",
+            name=DEFAULT_ENV_NAME,
+            artifact_path=relai_dir / "learning-envs" / f"{DEFAULT_ENV_NAME}.py",
+            relai_path=f".relai/learning-envs/{DEFAULT_ENV_NAME}.py",
+            simulate_flag="--learning-envs",
+        ),
+        SimulationTarget(
+            kind="learning environment",
+            name=DEFAULT_LOG_ENV_NAME,
+            artifact_path=relai_dir / "learning-envs" / f"{DEFAULT_LOG_ENV_NAME}.py",
+            relai_path=f".relai/learning-envs/{DEFAULT_LOG_ENV_NAME}.py",
+            simulate_flag="--learning-envs",
+        ),
+        SimulationTarget(
+            kind="benchmark",
+            name=DEFAULT_BENCHMARK_NAME,
+            artifact_path=relai_dir / "benchmarks" / f"{DEFAULT_BENCHMARK_NAME}.py",
+            relai_path=f".relai/benchmarks/{DEFAULT_BENCHMARK_NAME}.py",
+            simulate_flag="--benchmarks",
+        ),
+    ]
+
+
+def selected_global_evaluator_target(relai_dir: Path) -> SimulationTarget | None:
+    return next(
+        (target for target in global_evaluator_targets(relai_dir) if target.artifact_path.exists()),
+        None,
+    )
+
+
+def global_evaluator_result_path(target: SimulationTarget) -> str:
+    return f".relai/runs/{target.name}-{GLOBAL_EVALUATOR_RESULT_SUFFIX}.json"
+
+
 def global_evaluator_steps(
     relai_dir: Path,
     track: LearningTrack,
-    env_name: str,
     evaluator_prompt: str,
 ) -> list[WalkthroughStep]:
-    learning_env_path = relai_dir / "learning-envs" / f"{env_name}.py"
     evaluator_path = relai_dir / "evaluators" / f"{DEFAULT_GLOBAL_EVALUATOR_NAME}.py"
-    simulation_result_path = relai_dir / "runs" / f"{env_name}-simulation.json"
-    learning_env_relai_path = f".relai/learning-envs/{env_name}.py"
     evaluator_relai_path = f".relai/evaluators/{DEFAULT_GLOBAL_EVALUATOR_NAME}.py"
-    simulation_result_relai_path = f".relai/runs/{env_name}-simulation.json"
+    target = selected_global_evaluator_target(relai_dir)
+
+    if target is None:
+        return [
+            WalkthroughStep(
+                id=f"{track.id}:source",
+                kind="command",
+                title="Finish another loop first",
+                command=None,
+                artifact_paths=[target.relai_path for target in global_evaluator_targets(relai_dir)],
+                succeeded=False,
+                next_action=(
+                    "Finish Learning Environment (Prompt), Learning Environment (Log), or Benchmark first "
+                    "so there is something to simulate. Once one exists, this loop will show a simulation "
+                    "command for it."
+                ),
+            )
+        ]
+
+    simulation_result_relai_path = global_evaluator_result_path(target)
+    simulation_result_path = relai_dir.parent / simulation_result_relai_path
 
     return [
-        WalkthroughStep(
-            id=f"{track.id}:learning-env",
-            kind="command",
-            title="Create smoke learning environment",
-            command=(
-                "relai learning-env create "
-                f"--prompt {quote_shell(DEFAULT_GLOBAL_EVALUATOR_SMOKE_PROMPT)} "
-                f"--name {quote_shell(env_name)}"
-            ),
-            artifact_paths=[learning_env_relai_path],
-            succeeded=learning_env_path.exists(),
-            next_action="Run this to create a small smoke test that the global evaluator can score.",
-        ),
         WalkthroughStep(
             id=f"{track.id}:evaluator",
             kind="command",
@@ -494,14 +531,17 @@ def global_evaluator_steps(
         WalkthroughStep(
             id=f"{track.id}:simulate",
             kind="command",
-            title="Simulate",
+            title="Simulate with global evaluator",
             command=(
-                f"relai simulate --learning-envs {quote_shell(env_name)} "
+                f"relai simulate {target.simulate_flag} {quote_shell(target.name)} "
                 f"--result-json {simulation_result_relai_path}"
             ),
             artifact_paths=[simulation_result_relai_path],
             succeeded=simulation_result_path.exists(),
-            next_action="Run this smoke simulation with the global evaluator active.",
+            next_action=(
+                f"Run this against the detected {target.kind} `{target.name}`. RELAI applies the global "
+                "evaluator automatically after it has been created."
+            ),
         ),
         WalkthroughStep(
             id=f"{track.id}:optimize",
@@ -515,7 +555,7 @@ def global_evaluator_steps(
             ],
             succeeded=optimizer_succeeded_for_targets(
                 relai_dir,
-                [learning_env_relai_path, evaluator_relai_path, simulation_result_relai_path],
+                [target.relai_path, evaluator_relai_path, simulation_result_relai_path],
             ),
             next_action="Run this to let RELAI propose or apply improvements with the global evaluator active.",
         ),
@@ -545,13 +585,15 @@ def reset_track_outputs(
     )
     relai_dir = root / ".relai"
     paths: list[Path] = [
-        relai_dir / "runs" / f"{normalized_env_name}-simulation.json",
         relai_dir / "optimizer-scope.json",
         relai_dir / "optimizer_runs",
         relai_dir / "optimizer-state",
     ]
 
-    if track.kind in {PROMPT_TRACK_KIND, LOG_TRACK_KIND, GLOBAL_EVALUATOR_TRACK_KIND}:
+    if track.kind != GLOBAL_EVALUATOR_TRACK_KIND:
+        paths.append(relai_dir / "runs" / f"{normalized_env_name}-simulation.json")
+
+    if track.kind in {PROMPT_TRACK_KIND, LOG_TRACK_KIND}:
         paths.append(relai_dir / "learning-envs" / f"{normalized_env_name}.py")
 
     if track.kind == BENCHMARK_TRACK_KIND:
@@ -565,6 +607,12 @@ def reset_track_outputs(
 
     if track.kind == GLOBAL_EVALUATOR_TRACK_KIND:
         paths.append(relai_dir / "evaluators" / f"{DEFAULT_GLOBAL_EVALUATOR_NAME}.py")
+        paths.append(relai_dir / "learning-envs" / f"{DEFAULT_GLOBAL_EVALUATOR_ENV_NAME}.py")
+        paths.append(relai_dir / "runs" / f"{DEFAULT_GLOBAL_EVALUATOR_ENV_NAME}-simulation.json")
+        paths.extend(
+            relai_dir / "runs" / f"{target.name}-{GLOBAL_EVALUATOR_RESULT_SUFFIX}.json"
+            for target in global_evaluator_targets(relai_dir)
+        )
 
     deleted = [str(path.relative_to(root)) for path in paths if delete_path(path)]
     return {
@@ -592,10 +640,10 @@ def track_steps(
         return relai_artifact_steps(relai_dir, track, env_name, command)
 
     if track.kind == BENCHMARK_TRACK_KIND:
-        return benchmark_artifact_steps(relai_dir, track, env_name, prompt)
+        return benchmark_artifact_steps(relai_dir, track, env_name)
 
     if track.kind == GLOBAL_EVALUATOR_TRACK_KIND:
-        return global_evaluator_steps(relai_dir, track, env_name, prompt)
+        return global_evaluator_steps(relai_dir, track, prompt)
 
     log_path = session_log_path(session_id)
     log_exists = bool(log_path and (root / log_path).exists())

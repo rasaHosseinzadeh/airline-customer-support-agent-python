@@ -116,8 +116,7 @@ together.
 ```sh
 relai benchmark register \
   --csv benchmarks/airline_support_benchmark.csv \
-  --name airline-support-suite \
-  --prompt "Create an end-to-end benchmark for the airline support agent. Treat the input column as the user message, expected_behavior as required behavior, and rubric as grading guidance."
+  --name airline-support-suite
 ```
 
 ```sh
@@ -134,24 +133,22 @@ relai optimize
 
 Create one evaluator that applies across all simulations for the agent. Use this
 when one scoring rule should apply globally instead of living in a single
-learning environment.
-
-```sh
-relai learning-env create \
-  --prompt "Create a smoke test where a user asks the airline support agent to explain everything about the airline's policies in full detail, including baggage allowances for every fare class, carry-on rules, seat selection and change fees, cancellation and refund terms, boarding procedure, and loyalty perks. The agent should respond helpfully and completely." \
-  --name response-token-smoke-test
-```
+learning environment. Finish one of the learning-environment or benchmark loops
+first so there is something for the global evaluator to score.
 
 ```sh
 relai evaluator create \
-  --prompt "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback with the observed token count when available." \
+  --prompt "Create an evaluator that scores 1 when an agent response is 100 tokens or fewer, and scores 0 otherwise." \
   --name response-token
 ```
 
+After the evaluator is created, run simulation against a learning environment or
+benchmark you already created. RELAI applies the global evaluator automatically.
+
 ```sh
 relai simulate \
-  --learning-envs response-token-smoke-test \
-  --result-json .relai/runs/response-token-smoke-test-simulation.json
+  --learning-envs response-signoff \
+  --result-json .relai/runs/response-signoff-global-evaluator-simulation.json
 ```
 
 ```sh

@@ -117,11 +117,8 @@ const DEFAULT_PROMPT =
 const DEFAULT_FEEDBACK =
   "The agent should not answer off-topic, non-airline questions. It should politely say it can only help with airline booking, baggage, seat, and flight-change questions.";
 
-const DEFAULT_BENCHMARK_PROMPT =
-  "Create an end-to-end benchmark for the airline support agent. Treat the input column as the user message, expected_behavior as required behavior, and rubric as grading guidance.";
-
 const DEFAULT_GLOBAL_EVALUATOR_PROMPT =
-  "Create a global end-to-end evaluator that scores 1 when every agent response is 100 tokens or fewer, and scores 0 when any agent response is above 100 tokens. Give concise feedback with the observed token count when available.";
+  "Create an evaluator that scores 1 when an agent response is 100 tokens or fewer, and scores 0 otherwise.";
 
 const DEFAULT_TRACK_ID = "intended-behavior";
 const LOG_TRACK_ID = "unwanted-behavior";
@@ -205,7 +202,7 @@ function defaultPromptForTrack(trackId: string) {
   const defaults: Record<string, string> = {
     [DEFAULT_TRACK_ID]: DEFAULT_PROMPT,
     [LOG_TRACK_ID]: "",
-    [BENCHMARK_TRACK_ID]: DEFAULT_BENCHMARK_PROMPT,
+    [BENCHMARK_TRACK_ID]: "",
     [GLOBAL_EVALUATOR_TRACK_ID]: DEFAULT_GLOBAL_EVALUATOR_PROMPT
   };
   return defaults[trackId] ?? DEFAULT_PROMPT;
