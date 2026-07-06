@@ -84,7 +84,7 @@ TRACKS: tuple[LearningTrack, ...] = (
     LearningTrack(
         id=PROMPT_TRACK_ID,
         kind=PROMPT_TRACK_KIND,
-        title="Specify Intended Behavior",
+        title="Learning Environment from Prompt",
         objective=(
             "Turn one simple plain-English behavior prompt into a learning environment, measure "
             "the current agent against it, then optimize toward that behavior. Use this when you "
@@ -104,7 +104,7 @@ TRACKS: tuple[LearningTrack, ...] = (
     LearningTrack(
         id=LOG_TRACK_ID,
         kind=LOG_TRACK_KIND,
-        title="Fix Unwanted Behavior",
+        title="Learning Environment from Log + Feedback",
         objective=(
             "Capture a real, undesirable behavior in a session log, then turn that log plus your "
             "feedback into a learning environment and optimize the unwanted behavior away. Use this "
@@ -361,7 +361,7 @@ def relai_artifact_steps(
             command=learning_env_command,
             artifact_paths=[learning_env_relai_path],
             succeeded=learning_env_path.exists(),
-            next_action="Run this after setup to create the track learning environment.",
+            next_action="Run this after setup to create the loop learning environment.",
         ),
         WalkthroughStep(
             id=f"{track.id}:simulate",
@@ -373,7 +373,7 @@ def relai_artifact_steps(
             ),
             artifact_paths=[simulation_result_relai_path],
             succeeded=simulation_result_path.exists(),
-            next_action="Run this to measure the current agent against this track's learning environment.",
+            next_action="Run this to measure the current agent against this loop's learning environment.",
         ),
         WalkthroughStep(
             id=f"{track.id}:optimize",
@@ -389,7 +389,7 @@ def relai_artifact_steps(
                 relai_dir,
                 [learning_env_relai_path, simulation_result_relai_path],
             ),
-            next_action="Run this to let RELAI propose or apply improvements for this track.",
+            next_action="Run this to let RELAI propose or apply improvements for this loop.",
         ),
     ]
 

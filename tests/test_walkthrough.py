@@ -31,11 +31,18 @@ def test_prompt_track_commands_and_artifacts(tmp_path):
 
     assert status["selectedTrack"]["id"] == "intended-behavior"
     assert status["selectedTrack"]["kind"] == "prompt-learning-env"
+    assert status["selectedTrack"]["title"] == "Learning Environment from Prompt"
     assert [track["id"] for track in status["tracks"]] == [
         "intended-behavior",
         "unwanted-behavior",
         "benchmark",
         "global-evaluator",
+    ]
+    assert [track["title"] for track in status["tracks"]] == [
+        "Learning Environment from Prompt",
+        "Learning Environment from Log + Feedback",
+        "Benchmark",
+        "Global Evaluators",
     ]
     assert status["prompt"] == "The agent should end all responses with 'please let me know if you have any questions'."
     assert "init" not in steps
