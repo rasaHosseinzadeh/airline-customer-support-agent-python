@@ -10,16 +10,3 @@ web/.next/
 web/node_modules/
 web/out/
 *.tsbuildinfo
-
-# RELAI local files
-.relai/config.toml
-.relai/runs/
-.relai/optimizer_runs/
-.relai/memory
-.relai/optimizer-state/
-.relai/optimizer-scope.json
-.relai/simulator.env
-.relai/tags.json
-.relai/tag-records/
-.relai/.npmrc
-.relai/node_modules/
