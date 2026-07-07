@@ -18,6 +18,36 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
 }
 
+commit_dependency_changes() {
+  local paths=(
+    "pyproject.toml"
+    "uv.lock"
+  )
+
+  if ! command -v git >/dev/null 2>&1; then
+    log "Skipping dependency commit: git is not available"
+    return
+  fi
+
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    log "Skipping dependency commit: not inside a git repository"
+    return
+  fi
+
+  if [ -z "$(git status --porcelain -- "${paths[@]}")" ]; then
+    return
+  fi
+
+  log "Committing dependency changes"
+  if ! git add -- "${paths[@]}"; then
+    log "Dependency commit failed while staging files; continuing without committing"
+    return
+  fi
+  if ! git commit -m "Update Python dependency lock files" -- "${paths[@]}"; then
+    log "Dependency commit failed; continuing without committing"
+  fi
+}
+
 load_env_api_key() {
   if [ -n "${OPENAI_API_KEY:-}" ] || [ ! -f "$ENV_FILE" ]; then
     return
@@ -77,6 +107,7 @@ main() {
 
   log "Installing Python dependencies"
   uv sync
+  commit_dependency_changes
 
   log "Starting terminal chat"
   uv run airline-support
