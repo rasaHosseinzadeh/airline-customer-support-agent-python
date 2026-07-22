@@ -5,13 +5,13 @@
       "name": "OPENAI_API_KEY",
       "required": false,
       "sensitive": true,
-      "reason": "Preferred provider key. When set, the agent runs on the default OpenAI Agents SDK model path."
+      "reason": "The agent uses the OpenAI Agents SDK default model path when this key is set. Set either OPENAI_API_KEY or ANTHROPIC_API_KEY."
     },
     {
       "name": "ANTHROPIC_API_KEY",
       "required": false,
       "sensitive": true,
-      "reason": "Alternate provider key. Used via the litellm model path when OPENAI_API_KEY is not set."
+      "reason": "The agent falls back to the LiteLLM Anthropic model when this key is set instead of OPENAI_API_KEY. Set either OPENAI_API_KEY or ANTHROPIC_API_KEY."
     }
   ],
   "files": []

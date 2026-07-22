@@ -2,43 +2,44 @@
   "schema_version": "relai.learning_env_context.v1",
   "agent": {
     "entrypoint": "airline_support.agent:create_airline_agent",
-    "runner_summary": "The simulator adapter builds the SkyServe airline support agent and runs each turn with Runner.run. FixedTurn.content is the plain user message string passed to run_turn."
+    "runner_summary": "Runs the SkyServe airline support agent through the simulator adapter. FixedTurn.content is the raw user message string passed to the agent for one turn."
   },
   "components": [
     {
       "id": "lookup_booking",
       "import_path": "airline_support.agent:lookup_booking",
-      "when_to_use": "Booking lookup behavior, e.g. verifying a confirmation code returns the right passenger, route, and seat.",
+      "when_to_use": "Scenarios about looking up a booking by confirmation code, including unknown or invalid codes.",
       "live_mock_targets": [],
       "required_mock_targets": [],
-      "input_guidance": "Pass the named argument confirmation_code (a demo code such as SKY123 or BAY777).",
-      "output_guidance": "Evaluate the booking summary string returned to the agent, or 'No booking was found' for unknown codes."
+      "input_guidance": "Pass the confirmation_code argument (e.g. \"SKY123\"). Codes are normalized to uppercase.",
+      "output_guidance": "Evaluate the booking summary string, or the not-found message for unknown codes."
     },
     {
       "id": "baggage_policy",
       "import_path": "airline_support.agent:baggage_policy",
-      "when_to_use": "Baggage policy answers for a given ticket type.",
+      "when_to_use": "Scenarios about baggage allowance for a given ticket type.",
       "live_mock_targets": [],
       "required_mock_targets": [],
-      "input_guidance": "Pass the named argument ticket_type (e.g. basic, standard, business); it defaults to standard.",
-      "output_guidance": "Evaluate the returned policy string for the requested ticket type."
+      "input_guidance": "Pass the ticket_type argument (e.g. \"standard\", \"basic\", \"business\"); defaults to \"standard\".",
+      "output_guidance": "Evaluate the baggage policy string returned for the ticket type."
     },
     {
       "id": "change_seat",
       "import_path": "airline_support.agent:change_seat",
-      "when_to_use": "Seat-change behavior, including confirmation-code verification before mutating a booking.",
+      "when_to_use": "Scenarios about changing a seat on an existing booking; verify the agent asks for and validates the confirmation code first.",
       "live_mock_targets": [],
       "required_mock_targets": ["airline_support.agent:change_seat"],
-      "input_guidance": "Pass the named arguments confirmation_code and requested_seat.",
-      "output_guidance": "Evaluate the confirmation message; mock this tool so scenarios do not mutate shared booking state."
+      "input_guidance": "Pass confirmation_code and requested_seat arguments. Mock this tool in agent scenarios so the in-memory booking state is not mutated.",
+      "output_guidance": "Evaluate the seat-update confirmation string, or the message requiring a valid confirmation code."
     }
   ],
   "log_notes": [
-    "Terminal sessions are saved as JSONL under logs/ with 'message' events carrying role and content; user 'content' values map directly to adapter-facing fixed turns."
+    "Tool calls appear in the transcript as lookup_booking, baggage_policy, or change_seat with their JSON arguments.",
+    "The agent is instructed to ask for and verify a confirmation code before discussing a specific booking or changing a seat.",
+    "The agent must not invent refund amounts, flight availability, fees, or policy exceptions."
   ],
   "learning_env_guidance": [
-    "The agent-facing turn value is the plain user message string; put it directly in FixedTurn(content=...), not a JSON-encoded payload.",
-    "Prefer the OpenAI provider by setting OPENAI_API_KEY. If only ANTHROPIC_API_KEY is set, the agent uses the litellm/anthropic model path. For LLM-judge, persona, or generated-input models, prefer an OpenAI model via ModelSpec.",
-    "Mock airline_support.agent:change_seat in seat-change scenarios to keep runs deterministic and avoid mutating shared in-memory booking state."
+    "The adapter-facing input is a raw user message string; put that string directly in FixedTurn(content=...).",
+    "The agent uses the OpenAI Agents SDK. It selects the OpenAI default model when OPENAI_API_KEY is set, otherwise the LiteLLM Anthropic model (litellm/anthropic/claude-sonnet-5) when ANTHROPIC_API_KEY is set. Prefer OPENAI_API_KEY for LLM judge, persona, and generated-input models."
   ]
 }

@@ -1,29 +1,26 @@
 from __future__ import annotations
 
-from agents import Runner
+from agents import Agent, Runner
 
 from airline_support.agent import create_airline_agent
+from relai_simulator.adapter_contract import AgentAdapter, AgentTurnResult
 
-from relai_simulator.adapter_contract import AgentAdapter
 
+class AirlineSupportAdapter:
+    """Thin adapter around the SkyServe airline support agent.
 
-class ProjectAgentAdapter:
-    """Thin adapter around the airline support OpenAI Agents SDK agent.
-
-    The public turn value is the plain user message string that learning
-    environments provide in ``FixedTurn.content``.
+    ``agent_or_tools`` exposes the framework ``Agent`` so the generic runner can
+    apply tool mocks to its ``@function_tool`` boundaries before each turn.
     """
 
     def __init__(self) -> None:
-        # Build the agent once so the generic runner can apply tool mocks to the
-        # agent's FunctionTool objects via ``agent_or_tools``.
-        self._agent = create_airline_agent()
-        self.agent_or_tools = self._agent
+        self._agent: Agent = create_airline_agent()
+        self.agent_or_tools: Agent = self._agent
 
-    async def run_turn(self, user_input: object):
-        result = await Runner.run(self._agent, input=user_input)
-        return result.final_output
+    async def run_turn(self, user_input: object) -> AgentTurnResult:
+        result = await Runner.run(self._agent, input=str(user_input))
+        return AgentTurnResult(assistant_message=result.final_output)
 
 
 def build_agent_adapter() -> AgentAdapter:
-    return ProjectAgentAdapter()
+    return AirlineSupportAdapter()

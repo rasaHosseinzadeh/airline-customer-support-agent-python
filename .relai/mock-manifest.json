@@ -5,8 +5,8 @@
       "id": "lookup_booking",
       "target": "airline_support.agent:lookup_booking",
       "kind": "tool",
-      "final_policy": "do_not_mock",
-      "reason": "Reads deterministic in-memory demo booking data; can run live or be mocked depending on the scenario.",
+      "final_policy": "mock",
+      "reason": "Deterministic in-memory lookup of demo booking data by confirmation code. May be mocked to inject scenario-specific bookings or left live for the built-in demo data.",
       "source": "src/airline_support/agent.py",
       "cannot_mock_reason": null
     },
@@ -14,8 +14,8 @@
       "id": "baggage_policy",
       "target": "airline_support.agent:baggage_policy",
       "kind": "tool",
-      "final_policy": "do_not_mock",
-      "reason": "Pure deterministic policy lookup; can run live or be mocked depending on the scenario.",
+      "final_policy": "mock",
+      "reason": "Deterministic pure function returning the demo baggage policy for a ticket type. May be mocked to vary policy text or left live.",
       "source": "src/airline_support/agent.py",
       "cannot_mock_reason": null
     },
@@ -24,7 +24,7 @@
       "target": "airline_support.agent:change_seat",
       "kind": "tool",
       "final_policy": "mock",
-      "reason": "Mutates shared in-memory booking state; mock to keep seat-change scenarios deterministic and non-destructive.",
+      "reason": "Mutates the in-memory demo bookings map, so mocking keeps seat-change scenarios deterministic and free of cross-turn state changes.",
       "source": "src/airline_support/agent.py",
       "cannot_mock_reason": null
     }
