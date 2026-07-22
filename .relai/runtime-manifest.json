@@ -1,0 +1,18 @@
+{
+  "schema_version": "relai.runtime_manifest.v1",
+  "env": [
+    {
+      "name": "OPENAI_API_KEY",
+      "required": false,
+      "sensitive": true,
+      "reason": "Preferred provider key. When set, the agent runs on the default OpenAI Agents SDK model path."
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "required": false,
+      "sensitive": true,
+      "reason": "Alternate provider key. Used via the litellm model path when OPENAI_API_KEY is not set."
+    }
+  ],
+  "files": []
+}

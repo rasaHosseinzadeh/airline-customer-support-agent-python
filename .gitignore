@@ -5,3 +5,16 @@ __pycache__/
 .ruff_cache/
 
 logs/*.jsonl
+
+# RELAI local files
+.relai/config.toml
+.relai/.npmrc
+.relai/node_modules/
+.relai/tmp/
+.relai/runs/
+.relai/optimizer_runs/
+.relai/memory
+.relai/optimizer-state/
+.relai/optimizer-scope.json
+.relai/simulator.env
+.relai/tag-records/

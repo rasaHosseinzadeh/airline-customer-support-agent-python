@@ -1,0 +1,32 @@
+{
+  "schema_version": "relai.mock_manifest.v1",
+  "items": [
+    {
+      "id": "lookup_booking",
+      "target": "airline_support.agent:lookup_booking",
+      "kind": "tool",
+      "final_policy": "do_not_mock",
+      "reason": "Reads deterministic in-memory demo booking data; can run live or be mocked depending on the scenario.",
+      "source": "src/airline_support/agent.py",
+      "cannot_mock_reason": null
+    },
+    {
+      "id": "baggage_policy",
+      "target": "airline_support.agent:baggage_policy",
+      "kind": "tool",
+      "final_policy": "do_not_mock",
+      "reason": "Pure deterministic policy lookup; can run live or be mocked depending on the scenario.",
+      "source": "src/airline_support/agent.py",
+      "cannot_mock_reason": null
+    },
+    {
+      "id": "change_seat",
+      "target": "airline_support.agent:change_seat",
+      "kind": "tool",
+      "final_policy": "mock",
+      "reason": "Mutates shared in-memory booking state; mock to keep seat-change scenarios deterministic and non-destructive.",
+      "source": "src/airline_support/agent.py",
+      "cannot_mock_reason": null
+    }
+  ]
+}
