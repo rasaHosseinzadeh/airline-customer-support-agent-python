@@ -503,8 +503,6 @@ export RELAI_CONFIG_PYTHON="$VENV_PYTHON"
 install_relai_sdk "$VENV_PYTHON" uv
 # END RELAI CLI SDK INSTALL
 # BEGIN PROJECT DEPENDENCY INSTALL
-# The adapter imports airline_support.agent, so install the project package
-# (and its openai-agents dependency) editable into the simulator venv.
 uv pip install --python "$VENV_PYTHON" -e "$ROOT_DIR"
 # END PROJECT DEPENDENCY INSTALL
 uv pip install --python "$VENV_PYTHON" -e "$SIM_DIR"

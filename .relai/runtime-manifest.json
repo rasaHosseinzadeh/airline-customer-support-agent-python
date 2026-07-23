@@ -5,13 +5,13 @@
       "name": "OPENAI_API_KEY",
       "required": false,
       "sensitive": true,
-      "reason": "The agent uses the OpenAI Agents SDK default model path when this key is set. Set either OPENAI_API_KEY or ANTHROPIC_API_KEY."
+      "reason": "When set, the agent selects the default OpenAI Agents SDK model path. Exactly one of OPENAI_API_KEY or ANTHROPIC_API_KEY must be set, and OPENAI_API_KEY takes precedence when both are present."
     },
     {
       "name": "ANTHROPIC_API_KEY",
       "required": false,
       "sensitive": true,
-      "reason": "The agent falls back to the LiteLLM Anthropic model when this key is set instead of OPENAI_API_KEY. Set either OPENAI_API_KEY or ANTHROPIC_API_KEY."
+      "reason": "When OPENAI_API_KEY is unset, the agent selects the litellm/anthropic/claude-sonnet-5 model path via this key. Exactly one of OPENAI_API_KEY or ANTHROPIC_API_KEY must be set."
     }
   ],
   "files": []

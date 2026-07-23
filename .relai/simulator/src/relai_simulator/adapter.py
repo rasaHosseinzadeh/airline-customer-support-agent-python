@@ -1,26 +1,19 @@
 from __future__ import annotations
 
-from agents import Agent, Runner
+from agents import Runner
 
 from airline_support.agent import create_airline_agent
 from relai_simulator.adapter_contract import AgentAdapter, AgentTurnResult
 
 
-class AirlineSupportAdapter:
-    """Thin adapter around the SkyServe airline support agent.
-
-    ``agent_or_tools`` exposes the framework ``Agent`` so the generic runner can
-    apply tool mocks to its ``@function_tool`` boundaries before each turn.
-    """
-
+class ProjectAgentAdapter:
     def __init__(self) -> None:
-        self._agent: Agent = create_airline_agent()
-        self.agent_or_tools: Agent = self._agent
+        self.agent_or_tools = create_airline_agent()
 
     async def run_turn(self, user_input: object) -> AgentTurnResult:
-        result = await Runner.run(self._agent, input=str(user_input))
-        return AgentTurnResult(assistant_message=result.final_output)
+        result = await Runner.run(self.agent_or_tools, input=user_input)
+        return AgentTurnResult(assistant_message=str(result.final_output))
 
 
 def build_agent_adapter() -> AgentAdapter:
-    return AirlineSupportAdapter()
+    return ProjectAgentAdapter()
