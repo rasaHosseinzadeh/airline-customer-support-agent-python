@@ -2,7 +2,11 @@
   "schema_version": "relai.tags.v1",
   "tags": {
     "end-to-end": [
+      ".relai/learning-envs/off-topic-guardrail.py",
       ".relai/learning-envs/response-signoff.py"
+    ],
+    "off-topic-recipe-request-politely-refused": [
+      ".relai/learning-envs/off-topic-guardrail.py"
     ],
     "response-ends-with-requested-signoff": [
       ".relai/learning-envs/response-signoff.py"
