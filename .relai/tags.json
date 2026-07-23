@@ -1,0 +1,11 @@
+{
+  "schema_version": "relai.tags.v1",
+  "tags": {
+    "end-to-end": [
+      ".relai/learning-envs/response-signoff.py"
+    ],
+    "response-ends-with-requested-signoff": [
+      ".relai/learning-envs/response-signoff.py"
+    ]
+  }
+}
