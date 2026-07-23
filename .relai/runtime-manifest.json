@@ -1,0 +1,18 @@
+{
+  "schema_version": "relai.runtime_manifest.v1",
+  "env": [
+    {
+      "name": "OPENAI_API_KEY",
+      "required": false,
+      "sensitive": true,
+      "reason": "Used when the simulator runs the airline support agent with the default OpenAI Agents SDK provider."
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "required": false,
+      "sensitive": true,
+      "reason": "Used when the simulator runs the airline support agent through LiteLLM with the Anthropic fallback model."
+    }
+  ],
+  "files": []
+}

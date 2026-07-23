@@ -1,0 +1,32 @@
+{
+  "schema_version": "relai.mock_manifest.v1",
+  "items": [
+    {
+      "id": "lookup_booking",
+      "target": "airline_support.agent:lookup_booking",
+      "kind": "tool",
+      "final_policy": "do_not_mock",
+      "reason": "Booking lookup is a local deterministic demo tool backed by in-memory fixture data.",
+      "source": "src/airline_support/agent.py",
+      "cannot_mock_reason": null
+    },
+    {
+      "id": "baggage_policy",
+      "target": "airline_support.agent:baggage_policy",
+      "kind": "tool",
+      "final_policy": "do_not_mock",
+      "reason": "Baggage policy is a local deterministic demo tool with no external side effects.",
+      "source": "src/airline_support/agent.py",
+      "cannot_mock_reason": null
+    },
+    {
+      "id": "change_seat",
+      "target": "airline_support.agent:change_seat",
+      "kind": "tool",
+      "final_policy": "mock",
+      "reason": "Seat changes mutate the shared in-memory booking fixture and are often easier to isolate with a mock.",
+      "source": "src/airline_support/agent.py",
+      "cannot_mock_reason": null
+    }
+  ]
+}

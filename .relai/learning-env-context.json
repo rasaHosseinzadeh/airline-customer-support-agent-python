@@ -1,0 +1,45 @@
+{
+  "schema_version": "relai.learning_env_context.v1",
+  "agent": {
+    "entrypoint": "airline_support.agent:create_airline_agent",
+    "runner_summary": "Runs the OpenAI Agents airline support agent through the RELAI simulator adapter with raw string user turns."
+  },
+  "components": [
+    {
+      "id": "lookup_booking",
+      "import_path": "airline_support.agent:lookup_booking",
+      "when_to_use": "Booking lookup behavior is wrong or the agent should verify a confirmation code before discussing a reservation.",
+      "live_mock_targets": [],
+      "required_mock_targets": [],
+      "input_guidance": "Use named kwargs matching the tool schema: `confirmation_code` as the passenger's booking code string.",
+      "output_guidance": "Check whether the returned booking summary or not-found message matches the expected reservation details."
+    },
+    {
+      "id": "baggage_policy",
+      "import_path": "airline_support.agent:baggage_policy",
+      "when_to_use": "Baggage-policy answers are incorrect, incomplete, or use the wrong ticket class.",
+      "live_mock_targets": [],
+      "required_mock_targets": [],
+      "input_guidance": "Use named kwargs with `ticket_type` set to values such as `standard`, `basic`, or `business`.",
+      "output_guidance": "Evaluate whether the returned baggage allowance and fee guidance matches the requested fare type."
+    },
+    {
+      "id": "change_seat",
+      "import_path": "airline_support.agent:change_seat",
+      "when_to_use": "Seat-change behavior is incorrect or you want to isolate the booking mutation from the surrounding conversation.",
+      "live_mock_targets": [],
+      "required_mock_targets": [],
+      "input_guidance": "Use named kwargs `confirmation_code` and `requested_seat` with the booking code and desired seat string.",
+      "output_guidance": "Check whether the tool confirms the updated seat or rejects invalid booking codes as expected."
+    }
+  ],
+  "log_notes": [
+    "Agent-mode learning environments should pass the public turn value as a plain user-message string, not a wrapped JSON object.",
+    "The simulator adapter keeps prior user and assistant messages as conversation history across turns."
+  ],
+  "learning_env_guidance": [
+    "Use string `FixedTurn.content` values that match a terminal user's message exactly, for example `What is the baggage policy for a standard ticket?`.",
+    "Prefer agent environments for end-to-end conversational behavior and component environments for isolated tool behavior.",
+    "At least one provider key is needed at runtime: the agent uses OpenAI when `OPENAI_API_KEY` is set, otherwise it falls back to the Anthropic LiteLLM model when `ANTHROPIC_API_KEY` is set."
+  ]
+}
